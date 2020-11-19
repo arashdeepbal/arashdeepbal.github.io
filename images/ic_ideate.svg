@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.2 (47327) - http://www.bohemiancoding.com/sketch -->
+    <title>ic_ideate</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="icons" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="ic_ideate" transform="translate(8.000000, 2.000000)">
+            <circle id="Oval" fill="#171717" opacity="0.119999997" cx="18" cy="12" r="12"></circle>
+            <g id="ic_hand" transform="translate(0.000000, 12.000000)" stroke="#171717" stroke-linecap="round" stroke-linejoin="round">
+                <g id="Group" transform="translate(9.000000, 1.000000)">
+                    <path d="M30,31 C30,39.2842712 23.2842712,46 15,46 C6.71572875,46 0,39.2842712 0,31 L0,26 L0,22 C-4.05812251e-16,18.6862915 2.6862915,16 6,16 L6,3 C6,1.34314575 7.34314575,3.04359188e-16 9,0 C10.6568542,-3.04359188e-16 12,1.34314575 12,3 L12,12 C12,10.3431458 13.3431458,9 15,9 C16.6568542,9 18,10.3431458 18,12 C18,10.3431458 19.3431458,9 21,9 C22.6568542,9 24,10.3431458 24,12 C24,10.3431458 25.3431458,9 27,9 C28.6568542,9 30,10.3431458 30,12 L30,21 L30,31 Z" id="Combined-Shape" stroke-width="2"></path>
+                    <path d="M6,21 L6,3 C6,1.34314575 7.34314575,0 9,0 C10.6568542,-4.4408921e-16 12,1.34314575 12,3 L12,21" id="Rectangle-Copy-9" stroke-width="2"></path>
+                    <path d="M0,29 L0,22 C0,18.6862915 2.6862915,16 6,16 L6,29" id="Rectangle-Copy-8" stroke-width="2"></path>
+                    <path d="M12,25 L12,12 C12,10.3431458 13.3431458,9 15,9 C16.6568542,9 18,10.3431458 18,12 L18,21" id="Rectangle-Copy-7" stroke-width="2"></path>
+                    <path d="M18,25 L18,12 C18,10.3431458 19.3431458,9 21,9 C22.6568542,9 24,10.3431458 24,12 L24,25" id="Rectangle-Copy-6" stroke-width="2"></path>
+                    <path d="M24,21 L24,12 C24,10.3431458 25.3431458,9 27,9 C28.6568542,9 30,10.3431458 30,12 L30,21" id="Rectangle-Copy-5" stroke-width="2"></path>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

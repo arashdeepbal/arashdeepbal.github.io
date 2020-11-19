@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.2 (47327) - http://www.bohemiancoding.com/sketch -->
+    <title>ic_iterate</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="icons" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="ic_iterate" transform="translate(6.000000, 6.000000)">
+            <circle id="Oval-Copy" fill="#171717" opacity="0.119999997" cx="12" cy="12" r="12"></circle>
+            <g id="ic_cursor" transform="translate(4.000000, 4.000000)" stroke="#171717" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+                <polygon id="Path-2" points="8 7 44.7695526 21.1421356 27.7989899 26.7989899 22.1421356 43.7695526"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>
