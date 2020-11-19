@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64px" height="64px" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.2 (47327) - http://www.bohemiancoding.com/sketch -->
+    <title>ic_implement</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="icons" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="ic_implement" transform="translate(3.000000, 8.000000)">
+            <g id="ic_web" stroke="#171717">
+                <g id="Group">
+                    <rect id="Rectangle" stroke-width="2" x="3" y="6" width="42" height="31" rx="4"></rect>
+                    <path d="M18,42 L30,42" id="Line" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </g>
+            </g>
+            <rect id="Rectangle-3" fill="#000000" opacity="0.117130888" x="26" y="16" width="32" height="12"></rect>
+        </g>
+    </g>
+</svg>
