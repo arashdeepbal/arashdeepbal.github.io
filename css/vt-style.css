@@ -80,7 +80,7 @@ h1 {
   display: flex;
   flex-direction: column;
   align-self: center;
-  width: 50%;
+  width: 70%;
   padding-top: 40px;
 }
 
@@ -172,16 +172,18 @@ h1 {
   background: #fff;
   width: 100%;
   height: 100%;
+  flex-wrap: wrap;
 }
 
-.vt-hero-image {
-  display: none;
+.vt-hero-image img {
+  width: 100%;
+  padding-top: 0px;
 }
 
 .vt-hero-content {
   display: flex;
   align-items: flex-end;
-  padding: 64px 0 32px 0 ;
+  padding: 32px 0 32px 0 ;
   width: 100%;
 }
 
