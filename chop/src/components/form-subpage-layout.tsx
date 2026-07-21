@@ -35,6 +35,8 @@ export interface FormSubpageHeaderProps {
   leadingVisual?: ReactNode;
   /** When `variant` is `title-close`, show the top-end close control. @default true */
   showCloseButton?: boolean;
+  /** Hide the visual title from assistive technology when the dialog already has a SheetTitle. */
+  titleAriaHidden?: boolean;
 }
 
 export function FormSubpageHeader({
@@ -47,6 +49,7 @@ export function FormSubpageHeader({
   showTitleDivider = true,
   leadingVisual,
   showCloseButton = true,
+  titleAriaHidden = false,
 }: FormSubpageHeaderProps) {
   const Heading = titleElement;
 
@@ -71,7 +74,10 @@ export function FormSubpageHeader({
               showCloseButton ? "justify-between" : "justify-start"
             )}
           >
-            <Heading className="min-w-0 flex-1 text-2xl font-bold leading-tight tracking-tight text-foreground">
+            <Heading
+              className="min-w-0 flex-1 text-2xl font-bold leading-tight tracking-tight text-foreground"
+              aria-hidden={titleAriaHidden || undefined}
+            >
               {title}
             </Heading>
             {showCloseButton ? (
@@ -110,7 +116,10 @@ export function FormSubpageHeader({
         <IconBack className="h-5 w-5 shrink-0" aria-hidden />
         Back
       </Button>
-      <Heading className="text-2xl font-bold tracking-tight text-foreground">
+      <Heading
+        className="text-2xl font-bold tracking-tight text-foreground"
+        aria-hidden={titleAriaHidden || undefined}
+      >
         {title}
       </Heading>
     </header>

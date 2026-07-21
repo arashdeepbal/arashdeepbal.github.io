@@ -10,41 +10,59 @@ import { getCurrencyByValue } from "@/lib/currencies";
 import {
   formatAmount,
   formatAmountInput,
+  getCurrencyFractionDigits,
   normalizeAmountInput,
   parseAmountInput,
 } from "@/lib/format-amount";
-import { amountsFromPercents, equalSplitPercents } from "@/lib/split-total-by-percents";
+import {
+  amountsEqually,
+  amountsFromPercents,
+  equalSplitPercents,
+} from "@/lib/split-total-by-percents";
 import { CurrencyBottomSheet, PersonBottomSheet } from "@/components/form-bottom-sheets";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
+import {
+  readLastSplitMode,
+  rememberLastSplitMode,
+} from "@/lib/bill-form-preferences";
 import { cn } from "@/lib/utils";
 import PersonAvatar from "./PersonAvatar";
 
 interface BillItemsManagerProps {
   billItems: BillItem[];
   people: Person[];
+  tripId: string;
   activeCurrency: string;
-  onAddItem: (item: BillItem) => void;
-  onRemoveItem: (id: string) => void;
-  onUpdateItem: (item: BillItem) => void;
+  onAddItem: (item: BillItem) => Promise<void>;
+  editingItem?: BillItem | null;
+  onUpdateItem?: (item: BillItem) => Promise<void>;
+  onCancelEdit?: () => void;
 }
 
 export default function BillItemsManager({
   billItems,
   people,
+  tripId,
   activeCurrency,
   onAddItem,
-  onRemoveItem,
-  onUpdateItem
+  editingItem = null,
+  onUpdateItem,
+  onCancelEdit,
 }: BillItemsManagerProps) {
   const [newItemDescription, setNewItemDescription] = useState("");
   const [newItemAmount, setNewItemAmount] = useState("");
   const [newItemPaidBy, setNewItemPaidBy] = useState<string | null>(null);
   const [newItemSharedWith, setNewItemSharedWith] = useState<string[]>([]);
   const [newItemCurrency, setNewItemCurrency] = useState(activeCurrency);
-  const [splitMode, setSplitMode] = useState<SplitMode>("equal");
+  const [splitMode, setSplitMode] = useState<SplitMode>(() =>
+    readLastSplitMode(tripId),
+  );
   const [personAmounts, setPersonAmounts] = useState<Record<string, string>>({});
   const [personPercents, setPersonPercents] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const lastPercentageSharedKeyRef = useRef<string>("");
+  const previousEditingItemIdRef = useRef<string | null>(null);
+  const skipNextSharedAmountPruneRef = useRef(false);
 
   const usedCurrencyValues = useMemo(() => {
     const seen = new Set<string>();
@@ -59,6 +77,12 @@ export default function BillItemsManager({
   }, [billItems]);
 
   useEffect(() => {
+    if (!editingItem && previousEditingItemIdRef.current === null) {
+      setSplitMode(readLastSplitMode(tripId));
+    }
+  }, [editingItem, tripId]);
+
+  useEffect(() => {
     // Reset custom split values when people change.
     setPersonAmounts({});
     setPersonPercents({});
@@ -66,10 +90,54 @@ export default function BillItemsManager({
   }, [people]);
 
   useEffect(() => {
+    const currentPersonIds = new Set(people.map((person) => person.id));
+    if (editingItem) {
+      // This effect and the shared-participant pruning effect both run on the
+      // editor's first mount. Preserve the stored custom amounts during that
+      // initial pass; the following sharedWith update will safely prune them.
+      skipNextSharedAmountPruneRef.current = true;
+      setNewItemDescription(editingItem.description);
+      setNewItemAmount(formatAmountInput(String(editingItem.amount)));
+      setNewItemCurrency(editingItem.currency);
+      setNewItemPaidBy(
+        editingItem.paidBy && currentPersonIds.has(editingItem.paidBy)
+          ? editingItem.paidBy
+          : null,
+      );
+      setNewItemSharedWith(
+        editingItem.sharedWith.filter((personId) => currentPersonIds.has(personId)),
+      );
+      if (editingItem.personSplits?.length) {
+        setSplitMode("amount");
+        setPersonAmounts(
+          Object.fromEntries(
+            editingItem.personSplits.map((split) => [
+              split.personId,
+              formatAmountInput(String(split.amount)),
+            ]),
+          ),
+        );
+      } else {
+        setSplitMode("equal");
+        setPersonAmounts({});
+      }
+      setPersonPercents({});
+      previousEditingItemIdRef.current = editingItem.id;
+      return;
+    }
+
+    if (previousEditingItemIdRef.current) {
+      setNewItemDescription("");
+      setNewItemAmount("");
+      setSplitMode(readLastSplitMode(tripId));
+      setPersonAmounts({});
+      setPersonPercents({});
+      previousEditingItemIdRef.current = null;
+    }
+
     // Restore the last added bill's currency and participant selection.
     if (billItems.length > 0) {
       const lastBillItem = billItems[billItems.length - 1];
-      const currentPersonIds = new Set(people.map((person) => person.id));
       setNewItemCurrency(lastBillItem.currency);
       setNewItemPaidBy(
         lastBillItem.paidBy && currentPersonIds.has(lastBillItem.paidBy)
@@ -84,15 +152,21 @@ export default function BillItemsManager({
       setNewItemPaidBy(null);
       setNewItemSharedWith([]);
     }
-  }, [billItems, activeCurrency, people]);
+  }, [billItems, activeCurrency, editingItem, people, tripId]);
 
   useEffect(() => {
     // Reset amounts when shared participants change
-    const newPersonAmounts: Record<string, string> = {};
-    newItemSharedWith.forEach((personId) => {
-      newPersonAmounts[personId] = personAmounts[personId] || "";
+    if (skipNextSharedAmountPruneRef.current) {
+      skipNextSharedAmountPruneRef.current = false;
+      return;
+    }
+    setPersonAmounts((currentAmounts) => {
+      const nextAmounts: Record<string, string> = {};
+      newItemSharedWith.forEach((personId) => {
+        nextAmounts[personId] = currentAmounts[personId] || "";
+      });
+      return nextAmounts;
     });
-    setPersonAmounts(newPersonAmounts);
   }, [newItemSharedWith]);
 
   useEffect(() => {
@@ -155,7 +229,8 @@ export default function BillItemsManager({
     return true;
   };
 
-  const handleAddItem = () => {
+  const handleSaveItem = async () => {
+    if (submitting) return;
     if (!newItemDescription.trim()) {
       toast.error("Please enter an item description");
       return;
@@ -180,20 +255,22 @@ export default function BillItemsManager({
     // Generate person splits based on split mode
     let personSplits: PersonSplit[] = [];
     const totalAmount = parseAmountInput(newItemAmount);
+    const fractionDigits = getCurrencyFractionDigits(newItemCurrency);
 
     if (splitMode === "equal") {
-      const equalAmount = totalAmount / newItemSharedWith.length;
-      personSplits = newItemSharedWith.map(personId => ({
-        personId,
-        amount: equalAmount
-      }));
+      personSplits = amountsEqually(
+        totalAmount,
+        newItemSharedWith,
+        fractionDigits,
+      );
     } else if (splitMode === "percentage") {
       personSplits = amountsFromPercents(
         totalAmount,
         newItemSharedWith.map((personId) => ({
           personId,
           percent: parseFloat(personPercents[personId] || "0"),
-        }))
+        })),
+        fractionDigits,
       );
     } else {
       personSplits = newItemSharedWith.map((personId) => ({
@@ -202,26 +279,53 @@ export default function BillItemsManager({
       }));
     }
 
-    onAddItem({
-      id: crypto.randomUUID(),
+    const item: BillItem = {
+      id: editingItem?.id ?? crypto.randomUUID(),
       description: newItemDescription.trim(),
       amount: parseAmountInput(newItemAmount),
       paidBy: newItemPaidBy,
       sharedWith: newItemSharedWith,
       currency: newItemCurrency,
-      date: new Date().toISOString(),
+      date: editingItem?.date ?? new Date().toISOString(),
       personSplits,
-    });
-    
-    // Reset form
-    setNewItemDescription("");
-    setNewItemAmount("");
-    setNewItemCurrency(activeCurrency);
-    setSplitMode("equal");
-    setPersonAmounts({});
-    setPersonPercents({});
-    lastPercentageSharedKeyRef.current = "";
-    toast.success("Item added to the bill!");
+    };
+
+    setSubmitting(true);
+    try {
+      if (editingItem && onUpdateItem) {
+        await onUpdateItem(item);
+      } else {
+        await onAddItem(item);
+      }
+      setNewItemDescription("");
+      setNewItemAmount("");
+      setNewItemCurrency(activeCurrency);
+      setPersonAmounts({});
+      if (splitMode === "percentage" && newItemSharedWith.length > 0) {
+        const parts = equalSplitPercents(newItemSharedWith.length);
+        setPersonPercents(
+          Object.fromEntries(
+            newItemSharedWith.map((personId, index) => [
+              personId,
+              parts[index]!.toFixed(2),
+            ]),
+          ),
+        );
+        lastPercentageSharedKeyRef.current = [...newItemSharedWith]
+          .sort()
+          .join("|");
+      } else {
+        setPersonPercents({});
+        lastPercentageSharedKeyRef.current = "";
+      }
+      if (!editingItem) {
+        toast.success("Item added to the bill!", { id: "bill-save" });
+      }
+    } catch {
+      // The parent reports the save error; keep the form intact for retry.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const togglePersonInSharedWith = (personId: string) => {
@@ -323,7 +427,12 @@ export default function BillItemsManager({
             <ToggleGroup
               type="single"
               value={splitMode}
-              onValueChange={(value) => value && setSplitMode(value as SplitMode)}
+              onValueChange={(value) => {
+                if (!value) return;
+                const nextMode = value as SplitMode;
+                setSplitMode(nextMode);
+                rememberLastSplitMode(tripId, nextMode);
+              }}
               className="flex flex-wrap justify-start gap-2"
             >
               <ToggleGroupItem
@@ -481,14 +590,39 @@ export default function BillItemsManager({
             </div>
           </div>
 
-          <Button
-            onClick={handleAddItem}
-            disabled={people.length === 0}
-            className="h-12 min-h-12 w-full gap-2 text-base font-medium"
-          >
-            <IconPlus className="h-5 w-5 shrink-0" />
-            Add item to bill
-          </Button>
+          <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[60]">
+            <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+1rem+var(--bottom-nav-safe-area))]">
+              {editingItem && onCancelEdit ? (
+                <div className="pointer-events-auto flex w-full max-w-sm gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 min-h-12 flex-1 rounded-full text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
+                    onClick={onCancelEdit}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => void handleSaveItem()}
+                    disabled={people.length === 0 || submitting}
+                    className="h-12 min-h-12 flex-1 rounded-full text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
+                  >
+                    {submitting ? "Saving…" : "Save changes"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => void handleSaveItem()}
+                  disabled={people.length === 0 || submitting}
+                  className="pointer-events-auto h-12 min-h-12 min-w-0 gap-2 rounded-full px-5 text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
+                >
+                  <IconPlus className="h-5 w-5 shrink-0" />
+                  {submitting ? "Adding…" : editingItem ? "Save changes" : "Add bill"}
+                </Button>
+              )}
+            </div>
+          </div>
     </div>
   );
 }

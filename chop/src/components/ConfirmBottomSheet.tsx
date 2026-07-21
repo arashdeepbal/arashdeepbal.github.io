@@ -5,7 +5,7 @@ import {
 } from "@/components/form-subpage-layout";
 import { IconBin } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export interface ConfirmBottomSheetProps {
   open: boolean;
@@ -69,12 +69,14 @@ export function ConfirmBottomSheet({
           if (submitting) e.preventDefault();
         }}
       >
+        <SheetTitle className="sr-only">{title}</SheetTitle>
         <FormSubpageHeader
           variant="title-close"
           title={title}
           onBack={handleClose}
           backDisabled={submitting}
           titleElement="h2"
+          titleAriaHidden
           showTitleDivider={false}
           showCloseButton={visual !== "delete"}
           className={

@@ -4,6 +4,41 @@ This file summarizes notable project changes from the Git history. The repositor
 
 ## Unreleased
 
+### Added
+
+- Added a device-local recent-trips list limited to the five most recently opened trips.
+- Added expense editing, history search and filters, incremental history loading, settlement undo, and clearer destructive confirmations.
+- Added trip-access onboarding with share/copy actions and access/privacy guidance.
+- Added Vitest coverage for currency formatting, split allocation, and multi-currency debt grouping.
+- Added PWA metadata, icons, improved route loading/error states, and optimized app illustrations.
+
+### Changed
+
+- Reworked first-run participant onboarding around confirmable participant rows and a simplified finish action.
+- Moved Bill, Participants, and empty Summary/History primary actions into consistent floating pills above the bottom navigation.
+- Grouped all currencies owed between the same two participants into one summary card with independent settlement actions.
+- Preserved the most recently used currency, payer, and shared participants when adding another expense.
+- Centralized trip workspace loading and mutations in `useTripWorkspace` and centralized short-lived, deduplicated toast behavior.
+- Improved mobile sheet spacing, safe-area handling, tab-header spacing, semantic headings, focus behavior, and empty states.
+- Updated deployment and local-development documentation for the portfolio repository's `/chop/` subpath.
+
+### Fixed
+
+- Removed shadows from History cards while retaining their borders.
+- Made percentage allocation and displayed currency precision respect the selected currency's minor units.
+- Added collision retries when generating six-digit trip access codes.
+- Kept direct `/chop/bill/:eventId` routes, the legacy edit route, and the not-found experience working under the configured base path.
+- Made strict TypeScript checking pass for resolved currency precision.
+- Grouped History entries by the viewer's local calendar date instead of the timestamp's UTC date.
+- Allowed participants who paid existing expenses to be removed by safely detaching payer and split references before deletion, without changing the database schema.
+- Removed a deleted trip's device-local recent shortcut immediately.
+- Remembered each trip's last selected add-expense split mode on the current device across saves, tab changes, and reloads.
+
+### Verification
+
+- Passed ESLint, strict TypeScript checking, 21 Vitest tests, the Vite production build, the production dependency audit, and production-preview checks for landing, deep-link, manifest, and hashed-asset routes.
+- Exercised landing validation, trip creation/joining, participant onboarding and management, all three split modes, multi-currency summary, settlements and undo, expense edit/cancel/delete, history search/filter/pagination, trip rename, copy actions, recent trips, error states, and trip deletion in the local app.
+
 ### Documentation
 
 - Replaced the generic Lovable starter README with product, architecture, setup, data-model, and security documentation.

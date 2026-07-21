@@ -8,12 +8,15 @@ Chop Chop is a mobile-first bill-splitting app for trips and shared expenses. A 
 
 - Creates a shared trip with a six-digit access code.
 - Lets anyone with the code or trip URL join the same workspace.
-- Adds and edits participants with generated animal avatars.
-- Records expenses with a payer, date, currency, and included participants.
+- Adds, edits, and removes participants with generated animal avatars.
+- Adds, edits, and deletes expenses with a payer, date, currency, and included participants.
 - Splits an item equally, by exact amount, or by percentage.
 - Calculates who owes whom independently for each currency.
+- Groups multiple currencies owed between the same two people into one summary card.
 - Records settlements and shows expenses and settlements in a combined history.
-- Copies the trip URL or access code for sharing.
+- Searches and filters longer histories by entry type, participant, currency, and date.
+- Remembers up to five recently opened trips on the current device.
+- Shares or copies the trip URL and access code.
 
 Currency values are kept separate; the app does not convert between currencies or fetch exchange rates.
 
@@ -34,9 +37,11 @@ The trip workspace has five sections: **Bill**, **Summary**, **Participants**, *
 | `src/pages/` | Route-level landing, trip, and not-found screens |
 | `src/components/` | Bill, participant, summary, history, navigation, and sheet UI |
 | `src/components/ui/` | Reusable shadcn/Radix UI primitives |
+| `src/hooks/use-trip-workspace.ts` | Trip loading, local workspace state, and persisted mutations |
 | `src/services/database.ts` | All Supabase reads and writes plus database-to-app mapping |
 | `src/integrations/supabase/` | Supabase client and generated database types |
-| `src/lib/` | Currency data, avatar helpers, split calculations, and utilities |
+| `src/lib/` | Currency data, avatar helpers, split/debt calculations, sharing, recent trips, and utilities |
+| `src/lib/*.test.ts` | Vitest unit coverage for amount formatting and split/debt calculations |
 | `src/types/` | Shared application types |
 | `supabase/migrations/` | Database schema and incremental migrations |
 | `public/` | Favicons and optimized WebP illustrations |
@@ -59,7 +64,9 @@ The trip workspace has five sections: **Bill**, **Summary**, **Participants**, *
 - `bill_item_shares` links each bill item to its included participants.
 - `individual_settlements` records a payment from one participant to another.
 
-The frontend loads a trip into React state and writes changes directly through `src/services/database.ts`. For the summary, it calculates each participant's net balance per currency, applies recorded settlements, and greedily matches debtors with creditors. Percentage splits use a largest-remainder calculation so the stored amounts add up to the expense total at cent precision.
+The frontend loads a trip into React state and writes changes directly through `src/services/database.ts`. For the summary, it calculates each participant's net balance per currency, applies recorded settlements, and greedily matches debtors with creditors. Percentage splits use a largest-remainder calculation so the stored amounts add up to the expense total at the selected currency's precision.
+
+`person_splits` stores the resulting per-person amounts, not the original UI split mode. Reopening a saved custom or percentage allocation therefore presents the persisted values as **By amount**. The add-expense form remembers its last selected split mode separately on the current device for each trip.
 
 ## Tech stack
 
@@ -83,9 +90,9 @@ The frontend loads a trip into React state and writes changes directly through `
 ### Run the app
 
 ```sh
-git clone https://github.com/arashdeepbal/buddy-bill-divider.git
-cd buddy-bill-divider
-npm install
+git clone https://github.com/arashdeepbal/arashdeepbal.github.io.git
+cd arashdeepbal.github.io/chop
+npm ci
 npm run dev
 ```
 
@@ -102,9 +109,20 @@ This repository contains both `package-lock.json` and `bun.lockb`. The examples 
 | `npm run build:dev` | Build using Vite's development mode |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint across the project |
+| `npm test` | Run the Vitest unit suite once |
+| `npm run test:watch` | Run Vitest in watch mode |
 | `npm run optimize:images` | Convert PNG files in `public/` to resized WebP files |
 
-There is currently no automated test suite. Use the lint and production-build commands as the minimum pre-commit checks.
+Use lint, unit tests, strict TypeScript checking, and the production build as the pre-commit baseline:
+
+```sh
+npm run lint
+npm test
+npx tsc --noEmit -p tsconfig.app.json
+npm run build
+```
+
+As of the July 22, 2026 sanity run, lint, all 21 unit tests, strict TypeScript checking, the production build, the production preview routes, and `npm audit --omit=dev` pass.
 
 ## Supabase setup
 

@@ -11,13 +11,14 @@ import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
 } from "@/components/ui/sheet";
 import {
   createAvatarSeedForChosenEmoji,
   getEmojiIndexForAvatarSeed,
 } from "@/lib/participant-avatar";
 import type { Person } from "@/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
 
 export interface ParticipantFormSheetProps {
   open: boolean;
@@ -95,7 +96,7 @@ export function ParticipantFormSheet({
           avatarSeed: createAvatarSeedForChosenEmoji(emojiIndex),
         });
         if (notifyOnAdd) {
-          toast.success("Person added!");
+          toast.success("Person added!", { id: "participant-add" });
         }
         onOpenChange(false);
       } catch {
@@ -163,6 +164,7 @@ export function ParticipantFormSheet({
           if (submitting) e.preventDefault();
         }}
       >
+        <SheetTitle className="sr-only">{title}</SheetTitle>
         <FormSubpageHeader
           variant="title-close"
           title={title}

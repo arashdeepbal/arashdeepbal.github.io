@@ -1,16 +1,19 @@
 import { IconCopy } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
 import { TRIP_ACCESS_GUIDANCE } from "@/lib/trip-access-guidance";
-import { Check } from "lucide-react";
-import { toast } from "sonner";
+import { Check, Share2 } from "lucide-react";
+import { toast } from "@/lib/app-toast";
+import { copyText, shareTrip } from "@/lib/share-trip";
 
 interface TripAccessOnboardingProps {
   eventId: string;
+  tripName: string;
   onContinue: () => void;
 }
 
 export function TripAccessOnboarding({
   eventId,
+  tripName,
   onContinue,
 }: TripAccessOnboardingProps) {
   const tripUrl = new URL(
@@ -18,12 +21,29 @@ export function TripAccessOnboarding({
     `${window.location.origin}${import.meta.env.BASE_URL}`,
   ).toString();
 
-  const copyToClipboard = async (value: string, successMessage: string) => {
+  const copyToClipboard = async (
+    value: string,
+    successMessage: string,
+    toastId: string,
+  ) => {
     try {
-      await navigator.clipboard.writeText(value);
-      toast.success(successMessage);
+      await copyText(value);
+      toast.success(successMessage, { id: toastId });
     } catch {
-      toast.error("Couldn’t copy. Please copy it manually.");
+      toast.error("Couldn’t copy. Please copy it manually.", { id: toastId });
+    }
+  };
+
+  const handleShareTrip = async () => {
+    try {
+      const result = await shareTrip({ tripName, tripUrl });
+      if (result === "copied") {
+        toast.success("Sharing isn’t available, so the trip link was copied", {
+          id: "onboarding-share-trip",
+        });
+      }
+    } catch {
+      toast.error("Couldn’t share this trip", { id: "onboarding-share-trip" });
     }
   };
 
@@ -64,27 +84,44 @@ export function TripAccessOnboarding({
         className="space-y-3"
         aria-label="Trip access details"
       >
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
-          <div className="min-w-0 flex-1">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">Trip link</p>
             <a
               href={tripUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block break-all text-sm leading-relaxed text-primary underline-offset-2 hover:underline"
+              className="mt-1 block break-words text-sm leading-relaxed text-primary underline-offset-2 hover:underline"
             >
               {tripUrl}
             </a>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            className="shrink-0 gap-2"
-            onClick={() => void copyToClipboard(tripUrl, "Trip link copied")}
-          >
-            <IconCopy className="h-5 w-5" />
-            Copy URL
-          </Button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full gap-2"
+              onClick={() => void handleShareTrip()}
+            >
+              <Share2 className="h-5 w-5" aria-hidden />
+              Share
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full gap-2"
+              onClick={() =>
+                void copyToClipboard(
+                  tripUrl,
+                  "Trip link copied",
+                  "onboarding-copy-trip-link",
+                )
+              }
+            >
+              <IconCopy className="h-5 w-5" />
+              Copy URL
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4">
@@ -99,7 +136,11 @@ export function TripAccessOnboarding({
             variant="secondary"
             className="shrink-0 gap-2"
             onClick={() =>
-              void copyToClipboard(eventId, "Trip number copied")
+              void copyToClipboard(
+                eventId,
+                "Trip number copied",
+                "onboarding-copy-trip-number",
+              )
             }
           >
             <IconCopy className="h-5 w-5" />

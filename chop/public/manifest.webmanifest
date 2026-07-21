@@ -1,12 +1,12 @@
 {
-  "name": "Chop Chop - Split Your Bills",
-  "short_name": "Chop Chop",
+  "name": "Chop Chop!",
+  "short_name": "Chop Chop!",
   "description": "Split bills easily with friends.",
-  "start_url": "/chop/",
+  "start_url": "/chop/?source=pwa",
   "scope": "/chop/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#144294",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "pwa-icon-192.png",

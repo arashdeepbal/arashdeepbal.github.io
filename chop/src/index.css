@@ -36,8 +36,6 @@
 
     --radius: 0.5rem;
 
-    /* iPhone home indicator / swipe-up zone; min 1rem when env() is 0 (needs viewport-fit=cover). */
-    --safe-area-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
     /* Bottom navigation stays compact in browsers; standalone mode opts into the real device inset. */
     --bottom-nav-safe-area: 0px;
   }
@@ -77,11 +75,23 @@
   :root {
     --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
   }
+
+  html,
+  body,
+  #root {
+    background-color: #fff;
+  }
 }
 
 /* Older iOS Home Screen web apps expose navigator.standalone instead. */
 :root[data-standalone="true"] {
   --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
+}
+
+:root[data-standalone="true"],
+:root[data-standalone="true"] body,
+:root[data-standalone="true"] #root {
+  background-color: #fff;
 }
 
 @layer base {
@@ -115,6 +125,65 @@
     top: 0.5rem !important;
     transform: none !important;
   }
+
+  /* Match the toast close control to its message state without shrinking its tap target. */
+  [data-sonner-toast] [data-close-button]:hover,
+  [data-sonner-toast] [data-close-button]:focus-visible {
+    background-color: rgb(37 44 56 / 6%) !important;
+    color: #252c38 !important;
+  }
+
+  [data-sonner-toast][data-type="success"] [data-close-button] {
+    color: #047857 !important;
+  }
+
+  [data-sonner-toast][data-type="success"] [data-close-button]:hover,
+  [data-sonner-toast][data-type="success"] [data-close-button]:focus-visible {
+    background-color: #d1fae5 !important;
+  }
+
+  [data-sonner-toast][data-type="success"] [data-close-button]:active {
+    background-color: #a7f3d0 !important;
+  }
+
+  [data-sonner-toast][data-type="error"] [data-close-button] {
+    color: #b91c1c !important;
+  }
+
+  [data-sonner-toast][data-type="error"] [data-close-button]:hover,
+  [data-sonner-toast][data-type="error"] [data-close-button]:focus-visible {
+    background-color: #fee2e2 !important;
+  }
+
+  [data-sonner-toast][data-type="error"] [data-close-button]:active {
+    background-color: #fecaca !important;
+  }
+
+  [data-sonner-toast][data-type="warning"] [data-close-button] {
+    color: #b45309 !important;
+  }
+
+  [data-sonner-toast][data-type="warning"] [data-close-button]:hover,
+  [data-sonner-toast][data-type="warning"] [data-close-button]:focus-visible {
+    background-color: #fef3c7 !important;
+  }
+
+  [data-sonner-toast][data-type="warning"] [data-close-button]:active {
+    background-color: #fde68a !important;
+  }
+
+  [data-sonner-toast][data-type="info"] [data-close-button] {
+    color: hsl(var(--primary)) !important;
+  }
+
+  [data-sonner-toast][data-type="info"] [data-close-button]:hover,
+  [data-sonner-toast][data-type="info"] [data-close-button]:focus-visible {
+    background-color: hsl(var(--primary) / 10%) !important;
+  }
+
+  [data-sonner-toast][data-type="info"] [data-close-button]:active {
+    background-color: hsl(var(--primary) / 16%) !important;
+  }
 }
 
 @layer utilities {
@@ -131,4 +200,15 @@
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -3,13 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconPlus } from "@/components/icons/app-icons";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
 import { Person, BillItem } from "@/types";
 import { ParticipantFormSheet } from "@/components/ParticipantFormSheet";
-import {
-  createParticipantDraft,
-  ParticipantOnboardingForm,
-} from "@/components/ParticipantOnboardingForm";
+import { ParticipantOnboardingForm } from "@/components/ParticipantOnboardingForm";
+import { createParticipantDraft } from "@/lib/participant-draft";
 import { TripEditSheet } from "@/components/TripEditSheet";
 import { TripAccessOnboarding } from "@/components/TripAccessOnboarding";
 import ParticipantsManager from "@/components/ParticipantsManager";
@@ -18,22 +16,12 @@ import BillSummary from "@/components/BillSummary";
 import ExpenseHistory from "@/components/ExpenseHistory";
 import MoreTabPanel from "@/components/MoreTabPanel";
 import TripBottomNav, { type TripNavSection } from "@/components/TripBottomNav";
-
+import { useTripWorkspace } from "@/hooks/use-trip-workspace";
 import {
-  getEvent,
-  deleteEvent,
-  getParticipants,
-  addParticipant,
-  updateParticipant,
-  removeParticipant,
-  getBillItems,
-  addBillItem,
-  removeBillItem,
-  updateBillItem,
-  getIndividualSettlements,
-  addIndividualSettlement,
-  IndividualSettlement
-} from "@/services/database";
+  forgetRecentTrip,
+  rememberRecentTrip,
+} from "@/lib/recent-trips";
+import { forgetBillFormPreferences } from "@/lib/bill-form-preferences";
 
 const TRIP_PAGE_TITLES: Record<Exclude<TripNavSection, "participants">, string> = {
   bill: "Add a bill",
@@ -45,19 +33,34 @@ const TRIP_PAGE_TITLES: Record<Exclude<TripNavSection, "participants">, string> 
 export default function Index() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const [people, setPeople] = useState<Person[]>([]);
-  /** Local-only list before "Create trip" is pressed when the trip has no saved participants */
+  const {
+    people,
+    billItems,
+    settlements,
+    eventName,
+    setEventName,
+    loadStatus,
+    loadError,
+    reload,
+    addPerson,
+    saveInitialParticipants,
+    removePerson,
+    updatePerson,
+    deleteTrip,
+    addBill,
+    updateBill,
+    removeBill,
+    settleDebt,
+    removeSettlement,
+  } = useTripWorkspace(eventId);
+  /** Local-only list before setup is finished when the trip has no saved participants. */
   const [pendingPeople, setPendingPeople] = useState<Person[]>(() => [
     createParticipantDraft(),
   ]);
   const [savingPendingParticipants, setSavingPendingParticipants] = useState(false);
   const [showTripAccessOnboarding, setShowTripAccessOnboarding] = useState(false);
-  const [billItems, setBillItems] = useState<BillItem[]>([]);
-  const [settlements, setSettlements] = useState<IndividualSettlement[]>([]);
   /** Default for new line items: stored `value` in `BILL_CURRENCIES` (e.g. `$` for USD). */
   const activeCurrency = "$";
-  const [eventName, setEventName] = useState("");
-  const [loading, setLoading] = useState(true);
   const [navSection, setNavSection] = useState<TripNavSection>("bill");
   /** Summary tab: at least one debtor line (for page title "Who owes who"). */
   const [summaryHasDebtEntries, setSummaryHasDebtEntries] = useState(false);
@@ -68,24 +71,38 @@ export default function Index() {
     string | null
   >(null);
   const [tripEditSheetOpen, setTripEditSheetOpen] = useState(false);
+  const [editingBillItemId, setEditingBillItemId] = useState<string | null>(null);
 
-  const showParticipantOnboarding = !loading && people.length === 0;
+  const showParticipantOnboarding = loadStatus === "ready" && people.length === 0;
+  const showEmptyBillAction =
+    billItems.length === 0 &&
+    settlements.length === 0 &&
+    (navSection === "summary" || navSection === "history");
 
   const tripPersonToEdit = participantsEditParticipantId
     ? people.find((p) => p.id === participantsEditParticipantId)
     : undefined;
 
   useEffect(() => {
-    if (eventId) {
-      loadEventData();
-    }
-  }, [eventId]);
-
-  useEffect(() => {
     if (people.length > 0) {
       setPendingPeople([]);
     }
   }, [people.length]);
+
+  useEffect(() => {
+    if (loadStatus !== "ready" || !eventId || !eventName.trim()) return;
+    rememberRecentTrip(eventId, eventName);
+    document.title = `${eventName} · Chop Chop!`;
+    return () => {
+      document.title = "Chop Chop! - Split Your Bills Easily";
+    };
+  }, [eventId, eventName, loadStatus]);
+
+  useEffect(() => {
+    if (loadStatus === "error" && loadError === "not-found" && eventId) {
+      forgetRecentTrip(eventId);
+    }
+  }, [eventId, loadError, loadStatus]);
 
   useEffect(() => {
     if (showParticipantOnboarding && pendingPeople.length === 0) {
@@ -104,6 +121,9 @@ export default function Index() {
     if (navSection !== "more") {
       setTripEditSheetOpen(false);
     }
+    if (navSection !== "bill") {
+      setEditingBillItemId(null);
+    }
   }, [navSection]);
 
   useEffect(() => {
@@ -115,47 +135,12 @@ export default function Index() {
     }
   }, [people, participantsEditParticipantId]);
 
-  const loadEventData = async () => {
-    if (!eventId) return;
-    
-    try {
-      setLoading(true);
-      
-      // Load event details
-      const event = await getEvent(eventId);
-      setEventName(event.name);
-      
-      // Load participants
-      const participantsData = await getParticipants(eventId);
-      setPeople(participantsData);
-      
-      // Load bill items
-      const billItemsData = await getBillItems(eventId);
-      setBillItems(billItemsData);
-      
-      // Load settlements
-      const settlementsData = await getIndividualSettlements(eventId);
-      setSettlements(settlementsData);
-      
-    } catch (error) {
-      console.error('Error loading event data:', error);
-      toast.error("Failed to load event data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAddPerson = async (person: Person) => {
-    if (!eventId) {
-      throw new Error("Missing event");
-    }
-
     try {
-      await addParticipant(eventId, person);
-      setPeople((prev) => [...prev, person]);
+      await addPerson(person);
     } catch (error) {
       console.error("Error adding participant:", error);
-      toast.error("Failed to add participant");
+      toast.error("Failed to add participant", { id: "participant-add" });
       throw error;
     }
   };
@@ -166,15 +151,17 @@ export default function Index() {
 
     try {
       if (isLastParticipant) {
-        if (!eventId) throw new Error("Missing event");
-        await deleteEvent(eventId);
+        await deleteTrip();
+        if (eventId) {
+          forgetRecentTrip(eventId);
+          forgetBillFormPreferences(eventId);
+        }
         toast.success("Trip deleted");
         navigate("/", { replace: true });
         return;
       }
 
-      await removeParticipant(personId);
-      setPeople((prev) => prev.filter((p) => p.id !== personId));
+      await removePerson(personId);
     } catch (error) {
       console.error(
         isLastParticipant ? "Error deleting trip:" : "Error removing participant:",
@@ -190,17 +177,15 @@ export default function Index() {
   const handleUpdatePerson = async (person: Person) => {
     if (people.length === 0) {
       setPendingPeople((prev) => prev.map((p) => (p.id === person.id ? person : p)));
-      toast.success("Participant updated");
+      toast.success("Participant updated", { id: "participant-update" });
       return;
     }
-    if (!eventId) return;
     try {
-      await updateParticipant(person);
-      setPeople((prev) => prev.map((p) => (p.id === person.id ? person : p)));
-      toast.success("Participant updated");
+      await updatePerson(person);
+      toast.success("Participant updated", { id: "participant-update" });
     } catch (error) {
       console.error("Error updating participant:", error);
-      toast.error("Failed to update participant");
+      toast.error("Failed to update participant", { id: "participant-update" });
       throw error;
     }
   };
@@ -225,54 +210,33 @@ export default function Index() {
 
     setSavingPendingParticipants(true);
     try {
-      for (const person of participantsToSave) {
-        await addParticipant(eventId, person);
-      }
-      setPeople(participantsToSave);
+      await saveInitialParticipants(participantsToSave);
       setPendingPeople([]);
       setShowTripAccessOnboarding(true);
-      toast.success("Participants saved.");
+      toast.success("Participants saved.", { id: "participants-save" });
     } catch (error) {
       console.error("Error saving participants:", error);
-      toast.error("Failed to save participants. Please try again.");
-      try {
-        const participantsData = await getParticipants(eventId);
-        setPeople(participantsData);
-        setPendingPeople([]);
-      } catch {
-        // ignore
-      }
+      toast.error("Failed to save participants. Please try again.", {
+        id: "participants-save",
+      });
     } finally {
       setSavingPendingParticipants(false);
     }
   };
 
   const handleAddBillItem = async (item: BillItem) => {
-    if (!eventId) return;
-    
     try {
-      await addBillItem(eventId, item);
-      setBillItems(prev => [...prev, item]);
+      await addBill(item);
     } catch (error) {
       console.error('Error adding bill item:', error);
-      toast.error("Failed to add bill item");
-    }
-  };
-
-  const handleUpdateBillItem = async (item: BillItem) => {
-    try {
-      await updateBillItem(item);
-      setBillItems(prev => prev.map(bi => bi.id === item.id ? item : bi));
-    } catch (error) {
-      console.error('Error updating bill item:', error);
-      toast.error("Failed to update bill item");
+      toast.error("Failed to add bill item", { id: "bill-save" });
+      throw error;
     }
   };
 
   const handleRemoveBillItem = async (itemId: string) => {
     try {
-      await removeBillItem(itemId);
-      setBillItems((prev) => prev.filter((item) => item.id !== itemId));
+      await removeBill(itemId);
     } catch (error) {
       console.error("Error removing bill item:", error);
       toast.error("Failed to remove bill item");
@@ -280,26 +244,41 @@ export default function Index() {
     }
   };
 
-  const handleSettleIndividual = async (fromPersonId: string, toPersonId: string, currency: string, amount: number) => {
-    if (!eventId) return;
-    
+  const handleUpdateBillItem = async (item: BillItem) => {
     try {
-      await addIndividualSettlement(eventId, fromPersonId, toPersonId, currency, amount);
-      
-      // Reload settlements to get the latest data
-      const settlementsData = await getIndividualSettlements(eventId);
-      setSettlements(settlementsData);
-      
+      await updateBill(item);
+      setEditingBillItemId(null);
+      toast.success("Expense updated", { id: "expense-update" });
+    } catch (error) {
+      console.error("Error updating bill item:", error);
+      toast.error("Failed to update expense", { id: "expense-update" });
+      throw error;
+    }
+  };
+
+  const handleSettleIndividual = async (fromPersonId: string, toPersonId: string, currency: string, amount: number) => {
+    try {
+      return await settleDebt(fromPersonId, toPersonId, currency, amount);
     } catch (error) {
       console.error('Error settling individual debt:', error);
       throw error; // Re-throw to let the calling component handle the error
     }
   };
 
-  if (loading) {
+  const handleRemoveSettlement = async (settlementId: string) => {
+    try {
+      await removeSettlement(settlementId);
+    } catch (error) {
+      console.error("Error removing settlement:", error);
+      toast.error("Failed to undo settlement");
+      throw error;
+    }
+  };
+
+  if (loadStatus === "loading") {
     return (
       <div className="min-h-screen bg-white">
-        <div className="app-page">
+        <main className="app-page">
           <div className="flex flex-col items-center mb-8 py-4 space-y-3">
             <Skeleton className="h-9 w-48" />
           </div>
@@ -308,14 +287,58 @@ export default function Index() {
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
-        </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (loadStatus === "error") {
+    const tripWasNotFound = loadError === "not-found";
+    return (
+      <div className="min-h-screen bg-white">
+        <main className="app-page flex flex-col items-center justify-center text-center">
+          <div className="max-w-sm space-y-4">
+            {tripWasNotFound ? (
+              <img
+                src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
+                alt=""
+                width={180}
+                height={180}
+                className="empty-state-illustration mx-auto block"
+                decoding="async"
+              />
+            ) : null}
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {tripWasNotFound ? "Trip not found" : "Couldn’t load this trip"}
+            </h1>
+            <p className="text-muted-foreground">
+              {tripWasNotFound
+                ? "This trip may have been deleted, or the link or access code may be incorrect."
+                : "Check your connection and try again. No trip information was changed."}
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Button type="button" onClick={() => navigate("/", { replace: true })}>
+                Go to home
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void reload()}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="app-page">
+      <main
+        className={
+          showParticipantOnboarding || showTripAccessOnboarding
+            ? "app-page"
+            : "app-page pt-4"
+        }
+      >
         {showParticipantOnboarding ? (
           <>
             <div className="w-full space-y-6">
@@ -343,13 +366,17 @@ export default function Index() {
         ) : showTripAccessOnboarding && eventId ? (
           <TripAccessOnboarding
             eventId={eventId}
+            tripName={eventName}
             onContinue={() => setShowTripAccessOnboarding(false)}
           />
         ) : (
           <>
             {eventId && (
-              <div className="relative left-1/2 z-0 mb-6 w-screen min-w-0 -translate-x-1/2 border-b border-border bg-white">
+              <div className="relative left-1/2 z-0 mb-4 w-screen min-w-0 -translate-x-1/2 border-b border-border bg-white">
                 <header className="mx-auto w-full max-w-app px-4 pb-4">
+                  <p className="mb-1 truncate text-sm font-medium text-muted-foreground">
+                    {eventName.trim() || "Trip"}
+                  </p>
                   {navSection === "participants" && (
                     <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight text-foreground">
                       Participants ({people.length})
@@ -357,9 +384,11 @@ export default function Index() {
                   )}
                   {navSection !== "participants" && (
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      {navSection === "summary" && summaryHasDebtEntries
-                        ? "Who owes who"
-                        : TRIP_PAGE_TITLES[navSection]}
+                      {navSection === "bill" && editingBillItemId
+                        ? "Edit expense"
+                        : navSection === "summary" && summaryHasDebtEntries
+                          ? "Who owes who"
+                          : TRIP_PAGE_TITLES[navSection]}
                     </h1>
                   )}
                 </header>
@@ -367,8 +396,10 @@ export default function Index() {
             )}
             <div
               className={
-                navSection === "participants"
-                  ? "pb-[calc(3.5rem+7.5rem+var(--bottom-nav-safe-area))]"
+                navSection === "participants" ||
+                navSection === "bill" ||
+                showEmptyBillAction
+                  ? "pb-[calc(3.5rem+6.5rem+var(--bottom-nav-safe-area))]"
                   : "pb-[calc(3.5rem+var(--bottom-nav-safe-area))]"
               }
             >
@@ -377,10 +408,16 @@ export default function Index() {
                   <BillItemsManager
                     people={people}
                     billItems={billItems}
+                    tripId={eventId}
                     activeCurrency={activeCurrency}
                     onAddItem={handleAddBillItem}
+                    editingItem={
+                      editingBillItemId
+                        ? billItems.find((item) => item.id === editingBillItemId) ?? null
+                        : null
+                    }
                     onUpdateItem={handleUpdateBillItem}
-                    onRemoveItem={handleRemoveBillItem}
+                    onCancelEdit={() => setEditingBillItemId(null)}
                   />
                 </div>
               )}
@@ -392,6 +429,7 @@ export default function Index() {
                     people={people}
                     settlements={settlements}
                     onSettleIndividual={handleSettleIndividual}
+                    onRemoveSettlement={handleRemoveSettlement}
                     onDebtSplitsChange={setSummaryHasDebtEntries}
                   />
                 </div>
@@ -420,6 +458,12 @@ export default function Index() {
                     people={people}
                     settlements={settlements}
                     onRemoveItem={handleRemoveBillItem}
+                    onRemoveSettlement={handleRemoveSettlement}
+                    onEditItem={(item) => {
+                      setEditingBillItemId(item.id);
+                      setNavSection("bill");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                   />
                 </div>
               )}
@@ -429,27 +473,36 @@ export default function Index() {
                   eventId={eventId}
                   tripName={eventName}
                   onEditTrip={() => setTripEditSheetOpen(true)}
+                  onExitTrip={() => navigate("/")}
                 />
               )}
             </div>
 
-            {eventId && navSection === "participants" && (
+            {eventId &&
+              (navSection === "participants" || showEmptyBillAction) && (
               <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[60]">
-                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+2rem+var(--bottom-nav-safe-area))]">
+                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+1rem+var(--bottom-nav-safe-area))]">
                   <Button
                     type="button"
                     className="pointer-events-auto h-12 min-h-12 min-w-0 gap-2 rounded-full px-5 text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
                     onClick={() => {
-                      setParticipantsAddView(true);
-                      setParticipantsEditParticipantId(null);
+                      if (navSection === "participants") {
+                        setParticipantsAddView(true);
+                        setParticipantsEditParticipantId(null);
+                        return;
+                      }
+                      setNavSection("bill");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   >
                     <IconPlus className="h-5 w-5 shrink-0" />
-                    Add participant
+                    {navSection === "participants"
+                      ? "Add participant"
+                      : "Add your first bill"}
                   </Button>
                 </div>
               </div>
-            )}
+              )}
 
             {eventId && navSection === "participants" && (
               <>
@@ -489,7 +542,7 @@ export default function Index() {
             )}
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

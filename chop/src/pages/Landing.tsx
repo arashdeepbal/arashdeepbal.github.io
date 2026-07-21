@@ -1,53 +1,79 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/lib/app-toast";
 import { createEvent, checkEventExists, generateEventCode } from "@/services/database";
 import { LandingHeartIcon } from "@/components/icons/landing-heart-icon";
 import { LandingPlusIcon } from "@/components/icons/landing-plus-icon";
+import {
+  forgetRecentTrip,
+  readRecentTrips,
+  type RecentTrip,
+} from "@/lib/recent-trips";
 
 const HERO = `${import.meta.env.BASE_URL}landing-hero.webp`;
-const HERO_ALT = "3D knife slicing a roll of money — split the bill";
+const HERO_ALT = "German Shepherd puppy holding a large banknote";
 export default function Landing() {
   const [tripName, setTripName] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [recentTrips, setRecentTrips] = useState<RecentTrip[]>(readRecentTrips);
   const navigate = useNavigate();
-  useEffect(() => {
-    const t = setTimeout(() => setIsPageLoading(false), 250);
-    return () => clearTimeout(t);
-  }, []);
+
   const handleCreateTrip = async () => {
     if (!tripName.trim()) {
-      toast.error("Please enter a trip name");
+      toast.error("Please enter a trip name", { id: "trip-create" });
       return;
     }
     setIsCreating(true);
     try {
-      const eventCode = generateEventCode();
-      await createEvent(eventCode, tripName.trim());
-      toast.success(`Trip created! Access code: ${eventCode}`);
+      let eventCode = "";
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const candidate = generateEventCode();
+        try {
+          await createEvent(candidate, tripName.trim());
+          eventCode = candidate;
+          break;
+        } catch (error) {
+          const code =
+            typeof error === "object" && error !== null && "code" in error
+              ? String(error.code)
+              : "";
+          if (code !== "23505" || attempt === 4) throw error;
+        }
+      }
+      if (!eventCode) throw new Error("Could not generate a unique trip code");
+      toast.success(`Trip created! Access code: ${eventCode}`, {
+        id: "trip-create",
+      });
       navigate(`/bill/${eventCode}`);
     } catch (error) {
       console.error("Error creating trip:", error);
-      toast.error("Failed to create trip. Please try again.");
+      toast.error("Failed to create trip. Please try again.", {
+        id: "trip-create",
+      });
     } finally {
       setIsCreating(false);
     }
   };
   const handleJoinTrip = async () => {
     if (!accessCode.trim()) {
-      toast.error("Please enter an access code");
+      toast.error("Please enter an access code", { id: "trip-join" });
       return;
     }
 
     if (!/^\d{6}$/.test(accessCode.trim())) {
-      toast.error("Please enter a valid 6-digit access code");
+      toast.error("Please enter a valid 6-digit access code", { id: "trip-join" });
       return;
     }
     setIsJoining(true);
@@ -56,36 +82,20 @@ export default function Landing() {
       if (exists) {
         navigate(`/bill/${accessCode.trim()}`);
       } else {
-        toast.error("Trip not found. Please check the access code.");
+        toast.error("Trip not found. Please check the access code.", {
+          id: "trip-join",
+        });
       }
     } catch (error) {
       console.error("Error checking trip:", error);
-      toast.error("Failed to join trip. Please try again.");
+      toast.error("Failed to join trip. Please try again.", { id: "trip-join" });
     } finally {
       setIsJoining(false);
     }
   };
-  if (isPageLoading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <div className="app-page">
-          <div className="space-y-3 text-center">
-            <Skeleton className="empty-state-illustration mx-auto" />
-            <Skeleton className="mx-auto h-12 w-56 sm:h-14" />
-            <Skeleton className="mx-auto h-4 w-56" />
-          </div>
-          <div className="mt-8 space-y-6">
-            <Skeleton className="h-44 w-full rounded-lg" />
-            <Skeleton className="h-44 w-full rounded-lg" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-white">
-      <div className="app-page">
+      <main className="app-page">
         <header className="space-y-3 text-center">
           <div className="flex w-full justify-center">
             <img
@@ -94,7 +104,6 @@ export default function Landing() {
               width={256}
               height={256}
               className="empty-state-illustration mx-auto block"
-              fetchPriority="high"
               decoding="async"
             />
           </div>
@@ -107,6 +116,63 @@ export default function Landing() {
         </header>
 
         <div className="mt-8 w-full space-y-6">
+          {recentTrips.length > 0 ? (
+            <section aria-labelledby="recent-trips-heading">
+              <Card className="overflow-hidden">
+                <CardHeader className="p-4 pb-3">
+                  <CardTitle
+                    as="h2"
+                    id="recent-trips-heading"
+                    className="text-left text-xl font-bold tracking-tight text-foreground"
+                  >
+                    Recent trips on this device
+                  </CardTitle>
+                  {recentTrips.length === 5 ? (
+                    <CardDescription>
+                      Only the 5 most recently opened trips are shown.
+                    </CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <ul className="m-0 list-none space-y-2 p-0">
+                    {recentTrips.map((trip) => (
+                      <li
+                        key={trip.id}
+                        className="flex items-center gap-2 rounded-lg border border-border bg-muted/35 p-2 transition-colors hover:bg-muted/55"
+                      >
+                        <button
+                          type="button"
+                          className="min-h-12 min-w-0 flex-1 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          onClick={() => navigate(`/bill/${trip.id}`)}
+                        >
+                          <span className="block truncate font-semibold text-foreground">
+                            {trip.name}
+                          </span>
+                          <span className="mt-0.5 block text-sm tabular-nums text-muted-foreground">
+                            Trip ID: {trip.id}
+                          </span>
+                        </button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => {
+                            forgetRecentTrip(trip.id);
+                            setRecentTrips(readRecentTrips());
+                          }}
+                          aria-label={`Remove ${trip.name} from recent trips`}
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </section>
+          ) : null}
+
           <section aria-labelledby="landing-create-heading">
             <Card>
               <CardHeader className="p-4 pb-4">
@@ -119,20 +185,22 @@ export default function Landing() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 p-4 pt-0">
-                <Input
-                  id="landing-trip-name"
-                  type="text"
-                  autoComplete="off"
-                  placeholder="Name of the trip"
-                  aria-label="Name of the trip"
-                  value={tripName}
-                  onChange={(e) => setTripName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleCreateTrip();
-                    }
-                  }}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="landing-trip-name">Trip name</Label>
+                  <Input
+                    id="landing-trip-name"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="e.g., Weekend in Chiang Mai"
+                    value={tripName}
+                    onChange={(e) => setTripName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleCreateTrip();
+                      }
+                    }}
+                  />
+                </div>
                 <Button
                   type="button"
                   onClick={handleCreateTrip}
@@ -167,21 +235,29 @@ export default function Landing() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 p-4 pt-0">
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="one-time-code"
-                  placeholder="6-digit access code"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleJoinTrip();
-                    }
-                  }}
-                  maxLength={6}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="landing-access-code">Access code</Label>
+                  <Input
+                    id="landing-access-code"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
+                    placeholder="Enter the 6-digit code"
+                    aria-describedby="landing-access-code-hint"
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value.replace(/\D/g, ""))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleJoinTrip();
+                      }
+                    }}
+                    maxLength={6}
+                  />
+                  <p id="landing-access-code-hint" className="text-xs text-muted-foreground">
+                    You’ll find this number in the shared trip link.
+                  </p>
+                </div>
                 <Button
                   type="button"
                   onClick={handleJoinTrip}
@@ -199,7 +275,7 @@ export default function Landing() {
             </Card>
           </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

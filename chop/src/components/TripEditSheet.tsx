@@ -6,9 +6,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { updateEvent } from "@/services/database";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
 
 export interface TripEditSheetProps {
   open: boolean;
@@ -46,18 +46,18 @@ export function TripEditSheet({
   const handleSave = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Trip name cannot be empty");
+      toast.error("Trip name cannot be empty", { id: "trip-edit" });
       return;
     }
     setSubmitting(true);
     try {
       await updateEvent(eventId, trimmed);
       onSaved?.(trimmed);
-      toast.success("Trip updated");
+      toast.success("Trip updated", { id: "trip-edit" });
       onOpenChange(false);
     } catch (e) {
       console.error(e);
-      toast.error("Failed to save changes");
+      toast.error("Failed to save changes", { id: "trip-edit" });
     } finally {
       setSubmitting(false);
     }
@@ -83,6 +83,7 @@ export function TripEditSheet({
           if (submitting) e.preventDefault();
         }}
       >
+        <SheetTitle className="sr-only">Edit trip details</SheetTitle>
         <FormSubpageHeader
           variant="title-close"
           title="Edit trip details"

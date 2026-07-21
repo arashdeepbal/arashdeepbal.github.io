@@ -64,9 +64,7 @@ const SheetContent = React.forwardRef<
       ref={ref}
       className={cn(
         sheetVariants({ side }),
-        className,
-        /* Min 16px + home indicator; stacks after p-0 overrides from callers. */
-        side === "bottom" && "pb-[var(--safe-area-bottom)]"
+        className
       )}
       {...props}
     >
@@ -138,4 +136,3 @@ export {
   Sheet, SheetClose,
   SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetOverlay, SheetPortal, SheetTitle, SheetTrigger
 }
-

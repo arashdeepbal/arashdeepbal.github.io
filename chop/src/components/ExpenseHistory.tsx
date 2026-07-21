@@ -1,15 +1,23 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import { ArrowRight, Search, SlidersHorizontal, Undo2 } from "lucide-react";
 import { BillItem, Person } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ConfirmBottomSheet } from "@/components/ConfirmBottomSheet";
-import { ArrowRight } from "lucide-react";
-import { IconBin } from "@/components/icons/app-icons";
+import { IconBin, IconEdit } from "@/components/icons/app-icons";
 import { IndividualSettlement } from "@/services/database";
-import { formatAmount } from "@/lib/format-amount";
+import {
+  formatCurrencyAmount,
+  getCurrencyFractionDigits,
+} from "@/lib/format-amount";
+import { getCurrencyByValue } from "@/lib/currencies";
+import { amountsEqually } from "@/lib/split-total-by-percents";
+import { getLocalDateKey } from "@/lib/local-date-key";
 import PersonAvatar from "./PersonAvatar";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
 import {
   REMOVED_PARTICIPANT_AVATAR_SEED,
   REMOVED_PARTICIPANT_LABEL,
@@ -19,17 +27,21 @@ interface ExpenseHistoryProps {
   billItems: BillItem[];
   people: Person[];
   settlements: IndividualSettlement[];
-  onRemoveItem?: (id: string) => void;
+  onRemoveItem?: (id: string) => void | Promise<void>;
+  onRemoveSettlement?: (id: string) => void | Promise<void>;
+  onEditItem?: (item: BillItem) => void;
 }
+
+type HistoryTypeFilter = "all" | "expense" | "settlement";
 
 interface HistoryItem {
   id: string;
   type: "expense" | "settlement";
   date: string;
   description: string;
-  amount?: number;
-  currency?: string;
-  paidBy?: string;
+  amount: number;
+  currency: string;
+  paidBy?: string | null;
   sharedWith?: string[];
   fromPerson?: string;
   toPerson?: string;
@@ -37,34 +49,49 @@ interface HistoryItem {
     personId: string;
     amount: number;
   }>;
+  billItem?: BillItem;
+  settlement?: IndividualSettlement;
 }
 
-/** Prefer stored splits; otherwise equal split from total and sharedWith for display. */
-function getDisplayPersonSplits(item: {
-  amount?: number;
-  sharedWith?: string[];
-  personSplits?: Array<{ personId: string; amount: number }>;
-}): Array<{ personId: string; amount: number }> | null {
-  if (item.personSplits && item.personSplits.length > 0) {
-    return item.personSplits;
-  }
-  if (
-    item.amount == null ||
-    !item.sharedWith ||
-    item.sharedWith.length === 0
-  ) {
-    return null;
-  }
-  const per = item.amount / item.sharedWith.length;
-  return item.sharedWith.map((personId) => ({ personId, amount: per }));
+const INITIAL_VISIBLE_DATE_GROUPS = 4;
+
+/** Prefer stored splits; otherwise allocate the total with currency precision. */
+function getDisplayPersonSplits(item: HistoryItem) {
+  if (item.personSplits?.length) return item.personSplits;
+  if (!item.sharedWith?.length) return null;
+  return amountsEqually(
+    item.amount,
+    item.sharedWith,
+    getCurrencyFractionDigits(item.currency),
+  );
 }
 
-export default function ExpenseHistory({ billItems, people, settlements, onRemoveItem }: ExpenseHistoryProps) {
+export default function ExpenseHistory({
+  billItems,
+  people,
+  settlements,
+  onRemoveItem,
+  onRemoveSettlement,
+  onEditItem,
+}: ExpenseHistoryProps) {
   const [expenseToDelete, setExpenseToDelete] = useState<HistoryItem | null>(null);
+  const [settlementToUndo, setSettlementToUndo] = useState<HistoryItem | null>(null);
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<HistoryTypeFilter>("all");
+  const [personFilter, setPersonFilter] = useState("all");
+  const [currencyFilter, setCurrencyFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [visibleDateGroups, setVisibleDateGroups] = useState(
+    INITIAL_VISIBLE_DATE_GROUPS,
+  );
 
-  const getPersonNameById = (id: string) => {
-    return people.find(p => p.id === id)?.name || REMOVED_PARTICIPANT_LABEL;
-  };
+  const getPersonNameById = useCallback(
+    (id: string) =>
+      people.find((person) => person.id === id)?.name ??
+      REMOVED_PARTICIPANT_LABEL,
+    [people],
+  );
 
   const sortedItems = useMemo(() => {
     const items: HistoryItem[] = [
@@ -78,96 +105,290 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
         paidBy: item.paidBy,
         sharedWith: item.sharedWith,
         personSplits: item.personSplits,
+        billItem: item,
       })),
-      ...settlements.map(settlement => ({
+      ...settlements.map((settlement) => ({
         id: settlement.id,
-        type: 'settlement' as const,
+        type: "settlement" as const,
         date: settlement.settled_at,
-        description: `Settlement: ${getPersonNameById(settlement.from_person_id)} → ${getPersonNameById(settlement.to_person_id)}`,
+        description: `${getPersonNameById(settlement.from_person_id)} paid ${getPersonNameById(settlement.to_person_id)}`,
         amount: settlement.amount,
         currency: settlement.currency,
         fromPerson: settlement.from_person_id,
-        toPerson: settlement.to_person_id
-      }))
+        toPerson: settlement.to_person_id,
+        settlement,
+      })),
     ];
+    return items.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+  }, [billItems, getPersonNameById, settlements]);
 
-    return items.sort((a, b) => {
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
+  const availableCurrencies = useMemo(
+    () => [...new Set(sortedItems.map((item) => item.currency))],
+    [sortedItems],
+  );
+  const showHistoryTools = sortedItems.length >= 6;
+
+  const filteredItems = useMemo(() => {
+    if (!showHistoryTools) return sortedItems;
+    const normalizedQuery = query.trim().toLowerCase();
+    return sortedItems.filter((item) => {
+      if (typeFilter !== "all" && item.type !== typeFilter) return false;
+      if (currencyFilter !== "all" && item.currency !== currencyFilter) return false;
+      const date = getLocalDateKey(item.date);
+      if (fromDate && date < fromDate) return false;
+      if (toDate && date > toDate) return false;
+
+      const involvedPeople =
+        item.type === "settlement"
+          ? [item.fromPerson, item.toPerson]
+          : [item.paidBy, ...(item.sharedWith ?? []), ...(item.personSplits ?? []).map((split) => split.personId)];
+      if (
+        personFilter !== "all" &&
+        !involvedPeople.some((personId) => personId === personFilter)
+      ) {
+        return false;
+      }
+
+      if (!normalizedQuery) return true;
+      const searchableText = [
+        item.description,
+        item.currency,
+        getCurrencyByValue(item.currency)?.iso,
+        ...involvedPeople
+          .filter((personId): personId is string => Boolean(personId))
+          .map(getPersonNameById),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchableText.includes(normalizedQuery);
     });
-  }, [billItems, settlements, people]);
+  }, [
+    currencyFilter,
+    fromDate,
+    getPersonNameById,
+    personFilter,
+    query,
+    showHistoryTools,
+    sortedItems,
+    toDate,
+    typeFilter,
+  ]);
+
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, HistoryItem[]>();
+    for (const item of filteredItems) {
+      const date = getLocalDateKey(item.date);
+      const dateItems = groups.get(date) ?? [];
+      dateItems.push(item);
+      groups.set(date, dateItems);
+    }
+    return [...groups.entries()];
+  }, [filteredItems]);
+
+  useEffect(() => {
+    setVisibleDateGroups(INITIAL_VISIBLE_DATE_GROUPS);
+  }, [currencyFilter, fromDate, personFilter, query, toDate, typeFilter]);
 
   if (billItems.length === 0 && settlements.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <img
-          src={`${import.meta.env.BASE_URL}history-empty.webp`}
+          src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
           alt=""
           width={180}
           height={180}
           className="empty-state-illustration mb-4"
           decoding="async"
-          loading="lazy"
         />
         <p className="text-muted-foreground">
-          No expense history yet. Add some items to the bill first.
+          Your trip history will appear after you add your first bill.
         </p>
       </div>
     );
   }
 
-  // Group items by date
-  const itemsByDate = sortedItems.reduce((groups, item) => {
-    const date = item.date.split('T')[0]; // Get YYYY-MM-DD part
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(item);
-    return groups;
-  }, {} as Record<string, HistoryItem[]>);
+  const hasActiveFilters =
+    Boolean(query || fromDate || toDate) ||
+    typeFilter !== "all" ||
+    personFilter !== "all" ||
+    currencyFilter !== "all";
+  const visibleGroups = groupedItems.slice(0, visibleDateGroups);
 
   return (
     <div className="space-y-6">
-      {Object.entries(itemsByDate).map(([date, items]) => (
-        <div key={date} className="space-y-3">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
-            {format(new Date(date), "MMMM d, yyyy")}
-          </h3>
+      {showHistoryTools ? (
+        <section className="space-y-3" aria-labelledby="history-tools-heading">
+          <h2 id="history-tools-heading" className="sr-only">
+            Search and filter history
+          </h2>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search expenses, people, or currency"
+              aria-label="Search history"
+              className="pl-10"
+            />
+          </div>
+
+          <details className="rounded-lg border border-border bg-card">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
+              Filters
+              {hasActiveFilters ? (
+                <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                  Active
+                </span>
+              ) : null}
+            </summary>
+            <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="history-type-filter">Entry type</Label>
+              <select
+                id="history-type-filter"
+                value={typeFilter}
+                onChange={(event) =>
+                  setTypeFilter(event.target.value as HistoryTypeFilter)
+                }
+                className="h-12 w-full rounded-md border border-input bg-background px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="all">All entries</option>
+                <option value="expense">Expenses</option>
+                <option value="settlement">Settlements</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="history-person-filter">Participant</Label>
+              <select
+                id="history-person-filter"
+                value={personFilter}
+                onChange={(event) => setPersonFilter(event.target.value)}
+                className="h-12 w-full rounded-md border border-input bg-background px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="all">Everyone</option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="history-currency-filter">Currency</Label>
+              <select
+                id="history-currency-filter"
+                value={currencyFilter}
+                onChange={(event) => setCurrencyFilter(event.target.value)}
+                className="h-12 w-full rounded-md border border-input bg-background px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="all">All currencies</option>
+                {availableCurrencies.map((currency) => (
+                  <option key={currency} value={currency}>
+                    {getCurrencyByValue(currency)?.iso ?? currency}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="history-from-date">From</Label>
+                <Input
+                  id="history-from-date"
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => setFromDate(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="history-to-date">To</Label>
+                <Input
+                  id="history-to-date"
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => setToDate(event.target.value)}
+                />
+              </div>
+            </div>
+            {hasActiveFilters ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="sm:col-span-2"
+                onClick={() => {
+                  setQuery("");
+                  setTypeFilter("all");
+                  setPersonFilter("all");
+                  setCurrencyFilter("all");
+                  setFromDate("");
+                  setToDate("");
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : null}
+            </div>
+          </details>
+        </section>
+      ) : null}
+
+      {visibleGroups.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center">
+          <p className="font-medium text-foreground">No matching history</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Try a different search or clear the filters.
+          </p>
+        </div>
+      ) : null}
+
+      {visibleGroups.map(([date, items]) => (
+        <section key={date} className="space-y-3" aria-labelledby={`history-${date}`}>
+          <h2
+            id={`history-${date}`}
+            className="text-lg font-semibold tracking-tight text-foreground"
+          >
+            {format(new Date(`${date}T00:00:00`), "MMMM d, yyyy")}
+          </h2>
           <div className="flex flex-col gap-3">
             {items.map((item) => {
               if (item.type === "settlement") {
-                const fromPerson = people.find((p) => p.id === item.fromPerson);
-                const toPerson = people.find((p) => p.id === item.toPerson);
+                const fromPerson = people.find((person) => person.id === item.fromPerson);
+                const toPerson = people.find((person) => person.id === item.toPerson);
                 return (
-                  <Card
-                    key={item.id}
-                    className="p-4"
-                  >
-                    <div className="min-w-0 space-y-2">
+                  <Card key={item.id} className="overflow-hidden p-0">
+                    <div className="space-y-2 px-4 py-4">
+                      <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                        Settlement
+                      </span>
                       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-foreground">
                           <div className="flex min-w-0 items-center gap-2">
-                            {fromPerson && (
+                            {fromPerson ? (
                               <PersonAvatar name={fromPerson.name} seed={fromPerson.avatarSeed} size="sm" />
-                            )}
+                            ) : null}
                             <span className="truncate">
                               {getPersonNameById(item.fromPerson ?? "")}
                             </span>
                           </div>
-                          <ArrowRight
-                            className="h-4 w-4 shrink-0 text-muted-foreground"
-                            aria-hidden
-                          />
+                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                           <div className="flex min-w-0 items-center gap-2">
-                            {toPerson && (
+                            {toPerson ? (
                               <PersonAvatar name={toPerson.name} seed={toPerson.avatarSeed} size="sm" />
-                            )}
+                            ) : null}
                             <span className="truncate">
                               {getPersonNameById(item.toPerson ?? "")}
                             </span>
                           </div>
                         </div>
                         <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
-                          {item.currency} {formatAmount(item.amount)}
+                          {item.currency} {formatCurrencyAmount(item.amount, item.currency)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -177,109 +398,136 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
                         </time>
                       </p>
                     </div>
+                    {onRemoveSettlement ? (
+                      <div className="bg-muted/15 px-4 pb-3 pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full gap-2 font-medium"
+                          onClick={() => setSettlementToUndo(item)}
+                        >
+                          <Undo2 className="h-4 w-4" aria-hidden />
+                          Undo settlement
+                        </Button>
+                      </div>
+                    ) : null}
                   </Card>
                 );
               }
 
-              const paidByPerson = people.find((p) => p.id === item.paidBy);
+              const paidByPerson = people.find((person) => person.id === item.paidBy);
+              const displaySplits = getDisplayPersonSplits(item);
 
               return (
                 <Card key={item.id} className="overflow-hidden p-0">
-                  <div className="space-y-4 px-4 pt-4 pb-2">
-                    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                      <h4 className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-tight text-foreground">
-                        {item.description}
-                      </h4>
-                      <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
-                        {item.currency} {formatAmount(item.amount)}
+                  <div className="space-y-4 px-4 pb-2 pt-4">
+                    <div>
+                      <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                        Expense
                       </span>
+                      <div className="mt-2 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                        <h3 className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-tight text-foreground">
+                          {item.description}
+                        </h3>
+                        <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
+                          {item.currency} {formatCurrencyAmount(item.amount, item.currency)}
+                        </span>
+                      </div>
                     </div>
 
                     <dl className="grid gap-3 text-sm">
                       <div>
                         <dt className="sr-only">Paid by</dt>
                         <dd className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium text-muted-foreground">
-                            Paid by
-                          </span>
+                          <span className="font-medium text-muted-foreground">Paid by</span>
                           <span className="inline-flex items-center gap-2">
                             {paidByPerson ? (
-                              <PersonAvatar
-                                name={paidByPerson.name}
-                                seed={paidByPerson.avatarSeed}
-                                size="sm"
-                              />
+                              <PersonAvatar name={paidByPerson.name} seed={paidByPerson.avatarSeed} size="sm" />
                             ) : null}
                             <span className="font-medium text-foreground">
-                              {getPersonNameById(item.paidBy || "")}
+                              {getPersonNameById(item.paidBy ?? "")}
                             </span>
                           </span>
                         </dd>
                       </div>
                     </dl>
 
-                    {(() => {
-                      const displaySplits = getDisplayPersonSplits(item);
-                      if (!displaySplits?.length) return null;
-                      return (
-                        <div className="rounded-lg border border-border/80 bg-muted/25 px-3 py-2.5">
-                          <p className="mb-2 text-sm font-medium text-muted-foreground">
-                            Amount per person
-                          </p>
-                          <ul className="space-y-2">
-                            {displaySplits.map((split) => {
-                              const person = people.find(
-                                (p) => p.id === split.personId
-                              );
-                              return (
-                                <li
-                                  key={split.personId}
-                                  className="flex items-center justify-between gap-3 text-sm"
-                                >
-                                  <span className="flex min-w-0 items-center gap-2">
-                                    <PersonAvatar
-                                      name={person?.name || REMOVED_PARTICIPANT_LABEL}
-                                      seed={
-                                        person?.avatarSeed ||
-                                        REMOVED_PARTICIPANT_AVATAR_SEED
-                                      }
-                                      size="sm"
-                                    />
-                                    <span className="truncate font-medium text-foreground">
-                                      {person?.name ?? REMOVED_PARTICIPANT_LABEL}
-                                    </span>
+                    {displaySplits?.length ? (
+                      <div className="rounded-lg border border-border/80 bg-muted/25 px-3 py-2.5">
+                        <p className="mb-2 text-sm font-medium text-muted-foreground">
+                          Amount per person
+                        </p>
+                        <ul className="space-y-2">
+                          {displaySplits.map((split) => {
+                            const person = people.find((candidate) => candidate.id === split.personId);
+                            return (
+                              <li key={split.personId} className="flex items-center justify-between gap-3 text-sm">
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <PersonAvatar
+                                    name={person?.name || REMOVED_PARTICIPANT_LABEL}
+                                    seed={person?.avatarSeed || REMOVED_PARTICIPANT_AVATAR_SEED}
+                                    size="sm"
+                                  />
+                                  <span className="truncate font-medium text-foreground">
+                                    {person?.name ?? REMOVED_PARTICIPANT_LABEL}
                                   </span>
-                                  <span className="shrink-0 font-medium tabular-nums text-foreground">
-                                    {item.currency} {formatAmount(split.amount)}
-                                  </span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      );
-                    })()}
+                                </span>
+                                <span className="shrink-0 font-medium tabular-nums text-foreground">
+                                  {item.currency} {formatCurrencyAmount(split.amount, item.currency)}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
 
-                  {onRemoveItem ? (
-                    <div className="bg-muted/15 px-4 pt-2 pb-3">
-                      <Button
-                        type="button"
-                        variant="deleteOutline"
-                        className="w-full gap-2 font-medium"
-                        onClick={() => setExpenseToDelete(item)}
-                      >
-                        <IconBin className="h-4 w-4 shrink-0" />
-                        Delete
-                      </Button>
+                  {onEditItem || onRemoveItem ? (
+                    <div className="flex gap-3 bg-muted/15 px-4 pb-3 pt-2">
+                      {onEditItem && item.billItem ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 gap-2 font-medium"
+                          onClick={() => onEditItem(item.billItem!)}
+                        >
+                          <IconEdit className="h-4 w-4" />
+                          Edit
+                        </Button>
+                      ) : null}
+                      {onRemoveItem ? (
+                        <Button
+                          type="button"
+                          variant="deleteOutline"
+                          className="flex-1 gap-2 font-medium"
+                          onClick={() => setExpenseToDelete(item)}
+                        >
+                          <IconBin className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null}
                 </Card>
               );
             })}
           </div>
-        </div>
+        </section>
       ))}
+
+      {groupedItems.length > visibleDateGroups ? (
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-12 w-full"
+          onClick={() =>
+            setVisibleDateGroups((current) => current + INITIAL_VISIBLE_DATE_GROUPS)
+          }
+        >
+          Load older entries
+        </Button>
+      ) : null}
 
       <ConfirmBottomSheet
         open={expenseToDelete !== null}
@@ -288,15 +536,31 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
         }}
         visual="delete"
         title="Delete this expense?"
-        description="This removes it from the trip. You can&apos;t undo this."
+        description="This removes it from the trip. You can’t undo this."
         confirmLabel="Delete"
         onConfirm={async () => {
           if (!expenseToDelete || !onRemoveItem) return;
           const label = expenseToDelete.description.trim() || "Expense";
           await onRemoveItem(expenseToDelete.id);
           toast.success("Expense deleted", {
-            description: `"${label}" was removed from this trip.`,
+            description: `“${label}” was removed from this trip.`,
           });
+        }}
+      />
+
+      <ConfirmBottomSheet
+        open={settlementToUndo !== null}
+        onOpenChange={(open) => {
+          if (!open) setSettlementToUndo(null);
+        }}
+        title="Undo this settlement?"
+        description="This moves the balance back to Pending so it can be settled again."
+        confirmLabel="Undo settlement"
+        confirmVariant="default"
+        onConfirm={async () => {
+          if (!settlementToUndo || !onRemoveSettlement) return;
+          await onRemoveSettlement(settlementToUndo.id);
+          toast.success("Settlement undone");
         }}
       />
     </div>

@@ -4,30 +4,15 @@ import { IconBin, IconPlus } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  createAvatarSeedForChosenEmoji,
-  PARTICIPANT_ANIMAL_EMOJIS,
-} from "@/lib/participant-avatar";
+import { createParticipantDraft } from "@/lib/participant-draft";
 import type { Person } from "@/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
 
 interface ParticipantOnboardingFormProps {
   people: Person[];
   onPeopleChange: (people: Person[]) => void;
   onCreateTrip: (people: Person[]) => void | Promise<void>;
   saving?: boolean;
-}
-
-export function createParticipantDraft(): Person {
-  const emojiIndex = Math.floor(
-    Math.random() * PARTICIPANT_ANIMAL_EMOJIS.length,
-  );
-
-  return {
-    id: crypto.randomUUID(),
-    name: "",
-    avatarSeed: createAvatarSeedForChosenEmoji(emojiIndex),
-  };
 }
 
 function hasDuplicateName(people: Person[], personToConfirm: Person) {
@@ -109,7 +94,6 @@ export function ParticipantOnboardingForm({
       ),
     );
     setConfirmedParticipantIds((current) => new Set(current).add(person.id));
-    toast.success("Participant added!");
   };
 
   const handleAddAnotherParticipant = () => {
@@ -232,7 +216,7 @@ export function ParticipantOnboardingForm({
               onClick={handleCreateTrip}
               disabled={saving || hasUnconfirmedParticipant}
             >
-              {saving ? "Creating trip…" : "Create trip"}
+              {saving ? "Saving participants…" : "Finish setup"}
             </Button>
           </div>
         </>

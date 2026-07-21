@@ -3,156 +3,53 @@ import { format } from "date-fns";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmBottomSheet } from "@/components/ConfirmBottomSheet";
 import { IconSettleCheck } from "@/components/icons/settle-check-icon";
 import { BillItem, Person } from "@/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/app-toast";
 import { IndividualSettlement } from "@/services/database";
-import { formatAmount } from "@/lib/format-amount";
+import { formatCurrencyAmount } from "@/lib/format-amount";
 import {
   REMOVED_PARTICIPANT_AVATAR_SEED,
   REMOVED_PARTICIPANT_LABEL,
 } from "@/lib/participant-avatar";
+import { calculateDebtGroups } from "@/lib/calculate-debt-groups";
 import PersonAvatar from "./PersonAvatar";
 
 interface BillSummaryProps {
   billItems: BillItem[];
   people: Person[];
   settlements: IndividualSettlement[];
-  onSettleIndividual?: (fromPersonId: string, toPersonId: string, currency: string, amount: number) => void;
+  onSettleIndividual?: (
+    fromPersonId: string,
+    toPersonId: string,
+    currency: string,
+    amount: number,
+  ) => Promise<IndividualSettlement>;
+  onRemoveSettlement?: (settlementId: string) => Promise<void>;
   /** True when there is at least one debtor→creditor line to show (drives trip header title). */
   onDebtSplitsChange?: (hasDebts: boolean) => void;
 }
 
-interface CurrencySplit {
-  fromPerson: string;
-  toPerson: string;
-  amounts: {
-    currency: string;
-    amount: number;
-  }[];
-}
 export default function BillSummary({
   billItems,
   people,
   settlements,
   onSettleIndividual,
+  onRemoveSettlement,
   onDebtSplitsChange,
 }: BillSummaryProps) {
   const [settlingItems, setSettlingItems] = useState<Set<string>>(new Set());
-  const debtsByPersonPair = useMemo(() => {
-    // Calculate what each person paid and owes by currency
-    const personBalancesByCurrency: Record<string, Record<string, {
-      paid: number;
-      owes: number;
-    }>> = {};
-
-    // Get all currencies from bill items
-    const currencies = [...new Set(billItems.map(item => item.currency))];
-
-    // Initialize balances for each currency and person
-    currencies.forEach(currency => {
-      personBalancesByCurrency[currency] = {};
-      people.forEach(person => {
-        personBalancesByCurrency[currency][person.id] = {
-          paid: 0,
-          owes: 0
-        };
-      });
-    });
-
-    // Calculate balances from bill items
-    billItems.forEach(item => {
-      if (item.paidBy && item.sharedWith.length > 0) {
-        const currency = item.currency;
-
-        // Add to what they paid
-        personBalancesByCurrency[currency][item.paidBy].paid += item.amount;
-
-        // Split owed amounts: use persisted-style personSplits when present, else equal over sharedWith
-        if (item.personSplits && item.personSplits.length > 0) {
-          item.personSplits.forEach((ps) => {
-            const row = personBalancesByCurrency[currency][ps.personId];
-            if (row) row.owes += ps.amount;
-          });
-        } else {
-          const shareAmount = item.amount / item.sharedWith.length;
-          item.sharedWith.forEach((personId) => {
-            personBalancesByCurrency[currency][personId].owes += shareAmount;
-          });
-        }
-      }
-    });
-
-    // Subtract settled amounts
-    settlements.forEach(settlement => {
-      const currency = settlement.currency;
-      if (personBalancesByCurrency[currency]) {
-        // Reduce what the debtor owes
-        if (personBalancesByCurrency[currency][settlement.from_person_id]) {
-          personBalancesByCurrency[currency][settlement.from_person_id].owes -= settlement.amount;
-        }
-        // Reduce what the creditor is owed
-        if (personBalancesByCurrency[currency][settlement.to_person_id]) {
-          personBalancesByCurrency[currency][settlement.to_person_id].paid -= settlement.amount;
-        }
-      }
-    });
-
-    // Calculate net balances and create transfers for each currency
-    const debtsByPersonPair = new Map<string, CurrencySplit>();
-    currencies.forEach(currency => {
-      const netBalances: Record<string, number> = {};
-      people.forEach(person => {
-        const balance = personBalancesByCurrency[currency][person.id];
-        netBalances[person.id] = balance.paid - balance.owes;
-      });
-
-      // Find debtors and creditors for this currency
-      const debtors = people.filter(p => netBalances[p.id] < -0.01);
-      const creditors = people.filter(p => netBalances[p.id] > 0.01);
-
-      // Create transfers
-      debtors.forEach(debtor => {
-        let remaining = Math.abs(netBalances[debtor.id]);
-        creditors.forEach(creditor => {
-          if (remaining > 0.01 && netBalances[creditor.id] > 0.01) {
-            const transferAmount = Math.min(remaining, netBalances[creditor.id]);
-
-            // Group every currency owed between the same two people into one card.
-            const personPairKey = `${debtor.id}-${creditor.id}`;
-            let existingSplit = debtsByPersonPair.get(personPairKey);
-            if (!existingSplit) {
-              existingSplit = {
-                fromPerson: debtor.id,
-                toPerson: creditor.id,
-                amounts: []
-              };
-              debtsByPersonPair.set(personPairKey, existingSplit);
-            }
-            const roundedAmount = parseFloat(transferAmount.toFixed(2));
-            const existingCurrencyAmount = existingSplit.amounts.find(
-              (amount) => amount.currency === currency,
-            );
-            if (existingCurrencyAmount) {
-              existingCurrencyAmount.amount = parseFloat(
-                (existingCurrencyAmount.amount + roundedAmount).toFixed(2),
-              );
-            } else {
-              existingSplit.amounts.push({
-                currency,
-                amount: roundedAmount,
-              });
-            }
-            netBalances[creditor.id] -= transferAmount;
-            remaining -= transferAmount;
-          }
-        });
-      });
-    });
-    return [...debtsByPersonPair.values()].filter(
-      (split) => split.amounts.length > 0,
-    );
-  }, [billItems, people, settlements]);
+  const [settlementToConfirm, setSettlementToConfirm] = useState<{
+    fromPersonId: string;
+    toPersonId: string;
+    currency: string;
+    amount: number;
+  } | null>(null);
+  const debtsByPersonPair = useMemo(
+    () => calculateDebtGroups({ billItems, people, settlements }),
+    [billItems, people, settlements],
+  );
 
   const settlementsNewestFirst = useMemo(
     () =>
@@ -176,13 +73,33 @@ export default function BillSummary({
     if (settlingItems.has(settleKey)) return;
     setSettlingItems(prev => new Set(prev).add(settleKey));
     try {
-      if (onSettleIndividual) {
-        await onSettleIndividual(fromPersonId, toPersonId, currency, amount);
-      }
-      toast.success("Settlement recorded!");
+      if (!onSettleIndividual) return;
+      const settlement = await onSettleIndividual(
+        fromPersonId,
+        toPersonId,
+        currency,
+        amount,
+      );
+      toast.success("Settlement recorded", {
+        id: settleKey,
+        duration: 5000,
+        description: "The balance has been moved to Settled.",
+        action: onRemoveSettlement
+          ? {
+              label: "Undo",
+              onClick: () => {
+                void onRemoveSettlement(settlement.id)
+                  .then(() =>
+                    toast.success("Settlement undone", { id: settleKey })
+                  )
+                  .catch(() => undefined);
+              },
+            }
+          : undefined,
+      });
     } catch (error) {
       console.error("Error settling individual debt:", error);
-      toast.error("Failed to record settlement");
+      toast.error("Failed to record settlement", { id: settleKey });
     } finally {
       setSettlingItems(prev => {
         const newSet = new Set(prev);
@@ -195,15 +112,17 @@ export default function BillSummary({
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
         <img
-          src={`${import.meta.env.BASE_URL}summary-empty.webp`}
+          src={`${import.meta.env.BASE_URL}summary-empty.png`}
           alt=""
-          width={180}
-          height={180}
-          className="empty-state-illustration mb-4"
+          width={240}
+          height={134}
+          className="mb-4 h-auto w-[240px] max-w-full object-contain"
           decoding="async"
           loading="lazy"
         />
-        <p className="text-muted-foreground">Add some items to the bill to see the summary.</p>
+        <p className="text-muted-foreground">
+          Your summary will appear after you add your first bill.
+        </p>
       </div>
     );
   }
@@ -225,9 +144,9 @@ export default function BillSummary({
             : {})}
         >
           {settlements.length > 0 ? (
-            <h3 id="summary-pending-heading" className={summarySectionTitleClass}>
+            <h2 id="summary-pending-heading" className={summarySectionTitleClass}>
               Pending
-            </h3>
+            </h2>
           ) : null}
           <div className="flex flex-col gap-3">
             {debtsByPersonPair.map((split) => {
@@ -287,16 +206,16 @@ export default function BillSummary({
                             }`}
                           >
                             <div className="text-lg font-bold text-foreground">
-                              {amount.currency} {formatAmount(amount.amount)}
+                              {amount.currency} {formatCurrencyAmount(amount.amount, amount.currency)}
                             </div>
                             <Button
                               onClick={() =>
-                                handleIndividualSettle(
-                                  split.fromPerson,
-                                  split.toPerson,
-                                  amount.currency,
-                                  amount.amount
-                                )
+                                setSettlementToConfirm({
+                                  fromPersonId: split.fromPerson,
+                                  toPersonId: split.toPerson,
+                                  currency: amount.currency,
+                                  amount: amount.amount,
+                                })
                               }
                               disabled={isSettling}
                               size="sm"
@@ -334,9 +253,9 @@ export default function BillSummary({
 
       {settlements.length > 0 ? (
         <section className="space-y-3" aria-labelledby="summary-settled-heading">
-          <h3 id="summary-settled-heading" className={summarySectionTitleClass}>
+          <h2 id="summary-settled-heading" className={summarySectionTitleClass}>
             Settled
-          </h3>
+          </h2>
           <div className="flex flex-col gap-3">
             {settlementsNewestFirst.map((s) => {
               const fromPerson = getPersonById(s.from_person_id);
@@ -379,7 +298,7 @@ export default function BillSummary({
                         </div>
                       </div>
                       <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
-                        {s.currency} {formatAmount(s.amount)}
+                        {s.currency} {formatCurrencyAmount(s.amount, s.currency)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -395,6 +314,46 @@ export default function BillSummary({
           </div>
         </section>
       ) : null}
+
+      <ConfirmBottomSheet
+        open={settlementToConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open) setSettlementToConfirm(null);
+        }}
+        title="Settle this balance?"
+        description={
+          settlementToConfirm ? (
+            <>
+              Record that{" "}
+              <span className="font-medium text-foreground">
+                {getPersonById(settlementToConfirm.fromPersonId)?.name ??
+                  REMOVED_PARTICIPANT_LABEL}
+              </span>{" "}
+              paid{" "}
+              <span className="font-medium text-foreground">
+                {getPersonById(settlementToConfirm.toPersonId)?.name ??
+                  REMOVED_PARTICIPANT_LABEL}
+              </span>{" "}
+              {settlementToConfirm.currency}{" "}
+              {formatCurrencyAmount(
+                settlementToConfirm.amount,
+                settlementToConfirm.currency,
+              )}. You can undo this from History.
+            </>
+          ) : null
+        }
+        confirmLabel="Settle balance"
+        confirmVariant="default"
+        onConfirm={async () => {
+          if (!settlementToConfirm) return;
+          await handleIndividualSettle(
+            settlementToConfirm.fromPersonId,
+            settlementToConfirm.toPersonId,
+            settlementToConfirm.currency,
+            settlementToConfirm.amount,
+          );
+        }}
+      />
     </div>
   );
 }

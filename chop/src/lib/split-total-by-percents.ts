@@ -11,7 +11,7 @@ export function equalSplitPercents(count: number): number[] {
   const total = 10_000;
   const base = Math.floor(total / count);
   const out = Array.from({ length: count }, () => base);
-  let rem = total - base * count;
+  const rem = total - base * count;
   for (let i = 0; i < rem; i++) {
     out[i % count] += 1;
   }
@@ -24,31 +24,62 @@ export function equalSplitPercents(count: number): number[] {
  */
 export function amountsFromPercents(
   total: number,
-  entries: { personId: string; percent: number }[]
+  entries: { personId: string; percent: number }[],
+  fractionDigits = 2,
+): PersonSplit[] {
+  return amountsFromWeights(
+    total,
+    entries.map((entry) => ({
+      personId: entry.personId,
+      weight: entry.percent,
+    })),
+    fractionDigits,
+  );
+}
+
+/** Divide a currency total equally while keeping every minor unit accounted for. */
+export function amountsEqually(
+  total: number,
+  personIds: string[],
+  fractionDigits = 2,
+): PersonSplit[] {
+  return amountsFromWeights(
+    total,
+    personIds.map((personId) => ({ personId, weight: 1 })),
+    fractionDigits,
+  );
+}
+
+/** Allocate a currency total by relative weights using largest-remainder minor units. */
+export function amountsFromWeights(
+  total: number,
+  entries: { personId: string; weight: number }[],
+  fractionDigits = 2,
 ): PersonSplit[] {
   if (entries.length === 0) return [];
-  const totalCents = Math.round(total * 100);
-  const weights = entries.map((e) => e.percent);
+  const factor = 10 ** fractionDigits;
+  const totalUnits = Math.round(total * factor);
+  const weights = entries.map((entry) => Math.max(0, entry.weight));
   const wSum = weights.reduce((a, b) => a + b, 0);
   if (wSum <= 0) {
     return entries.map((e) => ({ personId: e.personId, amount: 0 }));
   }
 
-  const raw = weights.map((w) => (totalCents * w) / wSum);
+  const raw = weights.map((w) => (totalUnits * w) / wSum);
   const floors = raw.map((r) => Math.floor(r + 1e-9));
-  let diff = totalCents - floors.reduce((a, b) => a + b, 0);
+  const diff = totalUnits - floors.reduce((a, b) => a + b, 0);
   const order = entries.map((_, i) => i).sort((i, j) => {
     const fi = raw[i]! - floors[i]!;
     const fj = raw[j]! - floors[j]!;
     return fj - fi;
   });
-  const cents = [...floors];
+  const units = [...floors];
   for (let k = 0; k < diff; k++) {
-    cents[order[k]!]! += 1;
+    units[order[k]!]! += 1;
   }
 
-  return entries.map((e, i) => ({
-    personId: e.personId,
-    amount: cents[i]! / 100,
+  return entries.map((entry, i) => ({
+    personId: entry.personId,
+    amount: units[i]! / factor,
   }));
 }

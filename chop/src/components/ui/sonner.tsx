@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { cn } from "@/lib/utils";
+import { SUCCESS_TOAST_DURATION } from "@/lib/app-toast";
 
 const Toaster = ({ className, icons, toastOptions, ...rest }: ToasterProps) => {
   return (
@@ -15,9 +16,9 @@ const Toaster = ({ className, icons, toastOptions, ...rest }: ToasterProps) => {
       closeButton
       offset="calc(1rem + env(safe-area-inset-top, 0px))"
       gap={12}
-      duration={4500}
+      duration={SUCCESS_TOAST_DURATION}
       richColors={false}
-      visibleToasts={4}
+      visibleToasts={2}
       toastOptions={{
         ...toastOptions,
         classNames: {
@@ -42,10 +43,10 @@ const Toaster = ({ className, icons, toastOptions, ...rest }: ToasterProps) => {
           icon: cn("!mt-0.5 !size-5 !shrink-0", toastOptions?.classNames?.icon),
           closeButton: cn(
             "!left-auto !right-2 !top-2 !flex !h-10 !w-10 !transform-none !items-center !justify-center !border-0 !bg-transparent !p-0",
-            "text-muted-foreground opacity-70",
-            "rounded-md transition-all hover:!bg-muted hover:!text-foreground hover:opacity-100",
+            "text-muted-foreground opacity-80",
+            "rounded-md transition-colors hover:opacity-100 active:opacity-100",
             "focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "[&_svg]:!h-6 [&_svg]:!w-6 [&_svg]:!shrink-0 [&_svg]:stroke-[2]",
+            "[&_svg]:!h-[18px] [&_svg]:!w-[18px] [&_svg]:!shrink-0 [&_svg]:stroke-[2]",
             toastOptions?.classNames?.closeButton
           ),
           success: cn("!border-emerald-200/90 !bg-emerald-50/95", toastOptions?.classNames?.success),
