@@ -1,6 +1,22 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function () {
+        const appBase = "/chop";
+        const path = window.location.pathname;
+
+        if (path === appBase || path.startsWith(appBase + "/")) {
+          const route =
+            path.slice(appBase.length) +
+            window.location.search +
+            window.location.hash;
+          window.location.replace(
+            appBase + "/?route=" + encodeURIComponent(route || "/"),
+          );
+        }
+      })();
+    </script>
     <!-- Google tag (gtag.js) -->
     <script
       async

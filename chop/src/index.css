@@ -1,0 +1,122 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --primary: 224 76% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 10%;
+
+    /* Slightly darker red for delete / destructive actions (aligned across buttons). */
+    --destructive: 0 74% 46%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 224 76% 33%;
+
+    --radius: 0.5rem;
+
+    /* iPhone home indicator / swipe-up zone; min 1rem when env() is 0 (needs viewport-fit=cover). */
+    --safe-area-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 63%;
+
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 70% 30%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 210 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply overflow-x-hidden bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /** Single mobile-first layout: centered column, max 700px (padding included). */
+  .app-page {
+    @apply mx-auto w-full max-w-app px-4 py-8;
+  }
+
+  /** Empty state artwork: one size everywhere (180×180). */
+  .empty-state-illustration {
+    @apply h-[180px] w-[180px] max-w-full object-contain;
+  }
+
+  /**
+   * Sonner (LTR): library defaults place the close control at the start edge with a translate
+   * offset, which fights `right-*` utilities and looks detached from the toast. Pin top-end.
+   */
+  [data-sonner-toaster][dir="ltr"] [data-sonner-toast] [data-close-button] {
+    left: auto !important;
+    right: 0.5rem !important;
+    top: 0.5rem !important;
+    transform: none !important;
+  }
+}
+
+@layer utilities {
+  .bill-card {
+    @apply bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all;
+  }
+}
+
+/* Animation for the total amount display */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
