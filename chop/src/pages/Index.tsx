@@ -474,7 +474,6 @@ export default function Index() {
               data-direction={navDirection}
               className={
                 navSection === "participants" ||
-                navSection === "bill" ||
                 showEmptyBillAction
                   ? "trip-tab-enter pb-[calc(3.5rem+6.5rem+var(--safe-area-bottom))]"
                   : "trip-tab-enter pb-[calc(3.5rem+var(--safe-area-bottom))]"

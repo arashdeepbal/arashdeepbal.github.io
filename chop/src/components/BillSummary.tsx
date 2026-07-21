@@ -221,22 +221,17 @@ export default function BillSummary({
         </section>
       ) : showAllSettledState ? (
         <IllustratedState
-          className="settled-celebration gap-4 py-6"
+          className="gap-4 py-6"
           illustration={
-            <div className="relative">
-              <span className="settled-paw settled-paw-one" aria-hidden>🐾</span>
-              <span className="settled-paw settled-paw-two" aria-hidden>🐾</span>
-              <span className="settled-paw settled-paw-three" aria-hidden>🐾</span>
-              <img
-                src={`${import.meta.env.BASE_URL}summary-all-settled-trip.webp`}
-                alt=""
-                width={180}
-                height={180}
-                className="settled-dog-pop empty-state-illustration max-w-full object-contain"
-                decoding="async"
-                loading="lazy"
-              />
-            </div>
+            <img
+              src={`${import.meta.env.BASE_URL}summary-all-settled-trip.webp`}
+              alt=""
+              width={180}
+              height={180}
+              className="empty-state-illustration max-w-full object-contain"
+              decoding="async"
+              loading="lazy"
+            />
           }
           title="All settled for this trip!"
           titleAs="p"

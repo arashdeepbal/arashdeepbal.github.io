@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ArrowRight, Search, SlidersHorizontal, Undo2 } from "lucide-react";
+import { ArrowRight, Search, Undo2 } from "lucide-react";
 import { BillItem, Person } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { ConfirmBottomSheet } from "@/components/ConfirmBottomSheet";
 import { IconBin, IconEdit } from "@/components/icons/app-icons";
 import { IndividualSettlement } from "@/services/database";
@@ -32,53 +30,6 @@ interface ExpenseHistoryProps {
   onRemoveItem?: (id: string) => void | Promise<void>;
   onRemoveSettlement?: (id: string) => void | Promise<void>;
   onEditItem?: (item: BillItem) => void;
-}
-
-type HistoryTypeFilter = "all" | "expense" | "settlement";
-
-interface HistoryDateFilterProps {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}
-
-/**
- * iOS Safari leaves an empty native date input visually blank instead of
- * rendering a format hint. Keep the native picker, but provide our own hint
- * until the user chooses a date.
- */
-function HistoryDateFilter({
-  id,
-  label,
-  value,
-  onChange,
-}: HistoryDateFilterProps) {
-  return (
-    <div className="min-w-0 space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="relative min-w-0">
-        <Input
-          id={id}
-          type="date"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={cn(
-            "peer min-w-0",
-            !value && "text-transparent focus:text-foreground",
-          )}
-        />
-        {!value ? (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-base text-muted-foreground transition-opacity peer-focus:opacity-0"
-          >
-            dd/mm/yyyy
-          </span>
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 interface HistoryItem {
@@ -125,11 +76,6 @@ export default function ExpenseHistory({
   const [settlementToUndo, setSettlementToUndo] = useState<HistoryItem | null>(null);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<HistoryTypeFilter>("all");
-  const [personFilter, setPersonFilter] = useState("all");
-  const [currencyFilter, setCurrencyFilter] = useState("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
   const [visibleDateGroups, setVisibleDateGroups] = useState(
     INITIAL_VISIBLE_DATE_GROUPS,
   );
@@ -172,34 +118,18 @@ export default function ExpenseHistory({
     );
   }, [billItems, getPersonNameById, settlements]);
 
-  const availableCurrencies = useMemo(
-    () => [...new Set(sortedItems.map((item) => item.currency))],
-    [sortedItems],
-  );
-  const showHistoryTools = sortedItems.length >= 6;
+  const showHistorySearch = sortedItems.length >= 5;
 
   const filteredItems = useMemo(() => {
-    if (!showHistoryTools) return sortedItems;
+    if (!showHistorySearch) return sortedItems;
     const normalizedQuery = query.trim().toLowerCase();
-    return sortedItems.filter((item) => {
-      if (typeFilter !== "all" && item.type !== typeFilter) return false;
-      if (currencyFilter !== "all" && item.currency !== currencyFilter) return false;
-      const date = getLocalDateKey(item.date);
-      if (fromDate && date < fromDate) return false;
-      if (toDate && date > toDate) return false;
+    if (!normalizedQuery) return sortedItems;
 
+    return sortedItems.filter((item) => {
       const involvedPeople =
         item.type === "settlement"
           ? [item.fromPerson, item.toPerson]
           : [item.paidBy, ...(item.sharedWith ?? []), ...(item.personSplits ?? []).map((split) => split.personId)];
-      if (
-        personFilter !== "all" &&
-        !involvedPeople.some((personId) => personId === personFilter)
-      ) {
-        return false;
-      }
-
-      if (!normalizedQuery) return true;
       const searchableText = [
         item.description,
         item.currency,
@@ -213,17 +143,7 @@ export default function ExpenseHistory({
         .toLowerCase();
       return searchableText.includes(normalizedQuery);
     });
-  }, [
-    currencyFilter,
-    fromDate,
-    getPersonNameById,
-    personFilter,
-    query,
-    showHistoryTools,
-    sortedItems,
-    toDate,
-    typeFilter,
-  ]);
+  }, [getPersonNameById, query, showHistorySearch, sortedItems]);
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string, HistoryItem[]>();
@@ -238,7 +158,11 @@ export default function ExpenseHistory({
 
   useEffect(() => {
     setVisibleDateGroups(INITIAL_VISIBLE_DATE_GROUPS);
-  }, [currencyFilter, fromDate, personFilter, query, toDate, typeFilter]);
+  }, [query]);
+
+  useEffect(() => {
+    if (!showHistorySearch) setQuery("");
+  }, [showHistorySearch]);
 
   if (billItems.length === 0 && settlements.length === 0) {
     return (
@@ -259,19 +183,14 @@ export default function ExpenseHistory({
     );
   }
 
-  const hasActiveFilters =
-    Boolean(query || fromDate || toDate) ||
-    typeFilter !== "all" ||
-    personFilter !== "all" ||
-    currencyFilter !== "all";
   const visibleGroups = groupedItems.slice(0, visibleDateGroups);
 
   return (
     <div className="space-y-6">
-      {showHistoryTools ? (
-        <section className="space-y-3" aria-labelledby="history-tools-heading">
-          <h2 id="history-tools-heading" className="sr-only">
-            Search and filter history
+      {showHistorySearch ? (
+        <section aria-labelledby="history-search-heading">
+          <h2 id="history-search-heading" className="sr-only">
+            Search history
           </h2>
           <div className="relative">
             <Search
@@ -287,97 +206,6 @@ export default function ExpenseHistory({
               className="pl-10"
             />
           </div>
-
-          <Card asChild>
-            <details>
-            <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
-              Filters
-              {hasActiveFilters ? (
-                <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                  Active
-                </span>
-              ) : null}
-            </summary>
-            <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="history-type-filter">Entry type</Label>
-              <NativeSelect
-                id="history-type-filter"
-                value={typeFilter}
-                onChange={(event) =>
-                  setTypeFilter(event.target.value as HistoryTypeFilter)
-                }
-              >
-                <option value="all">All entries</option>
-                <option value="expense">Expenses</option>
-                <option value="settlement">Settlements</option>
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="history-person-filter">Participant</Label>
-              <NativeSelect
-                id="history-person-filter"
-                value={personFilter}
-                onChange={(event) => setPersonFilter(event.target.value)}
-              >
-                <option value="all">Everyone</option>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="history-currency-filter">Currency</Label>
-              <NativeSelect
-                id="history-currency-filter"
-                value={currencyFilter}
-                onChange={(event) => setCurrencyFilter(event.target.value)}
-              >
-                <option value="all">All currencies</option>
-                {availableCurrencies.map((currency) => (
-                  <option key={currency} value={currency}>
-                    {getCurrencyByValue(currency)?.iso ?? currency}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <HistoryDateFilter
-                id="history-from-date"
-                label="From"
-                value={fromDate}
-                onChange={setFromDate}
-              />
-              <HistoryDateFilter
-                id="history-to-date"
-                label="To"
-                value={toDate}
-                onChange={setToDate}
-              />
-            </div>
-            {hasActiveFilters ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="sm:col-span-2"
-                onClick={() => {
-                  setQuery("");
-                  setTypeFilter("all");
-                  setPersonFilter("all");
-                  setCurrencyFilter("all");
-                  setFromDate("");
-                  setToDate("");
-                }}
-              >
-                Clear filters
-              </Button>
-            ) : null}
-            </div>
-            </details>
-          </Card>
         </section>
       ) : null}
 
@@ -385,7 +213,7 @@ export default function ExpenseHistory({
         <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center">
           <p className="font-medium text-foreground">No matching history</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Try a different search or clear the filters.
+            Try a different search.
           </p>
         </div>
       ) : null}

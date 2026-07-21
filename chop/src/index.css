@@ -207,40 +207,6 @@
     transform: translateY(-4px) scale(0.98);
   }
 
-  .settled-dog-pop {
-    animation: settled-dog-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  .settled-paw {
-    position: absolute;
-    z-index: 1;
-    font-size: 1.15rem;
-    opacity: 0;
-    filter: saturate(0.75);
-    animation: settled-paw-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  .settled-paw-one {
-    left: 0.25rem;
-    top: 2.25rem;
-    rotate: -18deg;
-    animation-delay: 120ms;
-  }
-
-  .settled-paw-two {
-    right: 0;
-    top: 4.5rem;
-    rotate: 18deg;
-    animation-delay: 220ms;
-  }
-
-  .settled-paw-three {
-    bottom: 1.25rem;
-    left: 1.5rem;
-    rotate: -8deg;
-    animation-delay: 320ms;
-  }
-
   .trip-page-header {
     @apply z-40 mb-4 border-b border-border bg-card;
     position: sticky;
@@ -434,40 +400,6 @@
   }
 }
 
-@keyframes settled-dog-pop {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.88) rotate(-1deg);
-  }
-
-  70% {
-    opacity: 1;
-    transform: translateY(-2px) scale(1.025) rotate(0.5deg);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(0deg);
-  }
-}
-
-@keyframes settled-paw-pop {
-  0% {
-    opacity: 0;
-    transform: translateY(6px) scale(0.5);
-  }
-
-  65% {
-    opacity: 0.72;
-    transform: translateY(-2px) scale(1.08);
-  }
-
-  100% {
-    opacity: 0.55;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -481,12 +413,7 @@
   .trip-tab-enter,
   .bill-form-reset,
   .motion-amount-change,
-  .motion-list-enter,
-  .settled-dog-pop {
+  .motion-list-enter {
     animation: none !important;
-  }
-
-  .settled-paw {
-    display: none;
   }
 }

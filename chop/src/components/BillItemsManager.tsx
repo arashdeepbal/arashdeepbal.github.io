@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { IconPlus } from "@/components/icons/app-icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,80 @@ interface BillItemsManagerProps {
   onCancelEdit?: () => void;
 }
 
+const BOTTOM_NAV_HEIGHT_PX = 56;
+const BILL_ACTION_NAV_GAP_PX = 16;
+const INLINE_ACTION_VISIBLE_RATIO = 0.75;
+
+function useInlineBillActionsVisibility(
+  actionRef: React.RefObject<HTMLDivElement>,
+) {
+  const [isInlineVisible, setIsInlineVisible] = useState(false);
+
+  useLayoutEffect(() => {
+    const action = actionRef.current;
+    if (!action) return;
+
+    let observer: IntersectionObserver | null = null;
+
+    const getBottomObstruction = () => {
+      const safeAreaBottom = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--safe-area-bottom",
+        ),
+      );
+
+      return (
+        BOTTOM_NAV_HEIGHT_PX +
+        BILL_ACTION_NAV_GAP_PX +
+        (Number.isFinite(safeAreaBottom) ? safeAreaBottom : 0)
+      );
+    };
+
+    const updateVisibility = () => {
+      const rect = action.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportBottom =
+        viewportTop + (viewport?.height ?? window.innerHeight) - getBottomObstruction();
+      const visibleHeight = Math.max(
+        0,
+        Math.min(rect.bottom, viewportBottom) - Math.max(rect.top, viewportTop),
+      );
+
+      setIsInlineVisible(
+        rect.height > 0 && visibleHeight / rect.height >= INLINE_ACTION_VISIBLE_RATIO,
+      );
+    };
+
+    const observe = () => {
+      observer?.disconnect();
+      updateVisibility();
+
+      if (!("IntersectionObserver" in window)) return;
+
+      observer = new IntersectionObserver(updateVisibility, {
+        rootMargin: `0px 0px -${getBottomObstruction()}px 0px`,
+        threshold: [0, INLINE_ACTION_VISIBLE_RATIO, 1],
+      });
+      observer.observe(action);
+    };
+
+    observe();
+    window.addEventListener("resize", observe);
+    window.visualViewport?.addEventListener("resize", observe);
+    window.visualViewport?.addEventListener("scroll", updateVisibility);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", observe);
+      window.visualViewport?.removeEventListener("resize", observe);
+      window.visualViewport?.removeEventListener("scroll", updateVisibility);
+    };
+  }, [actionRef]);
+
+  return isInlineVisible;
+}
+
 export default function BillItemsManager({
   billItems,
   people,
@@ -70,6 +144,8 @@ export default function BillItemsManager({
   const lastPercentageSharedKeyRef = useRef<string>("");
   const previousEditingItemIdRef = useRef<string | null>(null);
   const skipNextSharedAmountPruneRef = useRef(false);
+  const inlineActionsRef = useRef<HTMLDivElement>(null);
+  const inlineActionsVisible = useInlineBillActionsVisibility(inlineActionsRef);
 
   const usedCurrencyValues = useMemo(() => {
     const seen = new Set<string>();
@@ -380,6 +456,72 @@ export default function BillItemsManager({
     }));
   };
 
+  const renderBillActions = (
+    presentation: "inline" | "floating",
+    interactive: boolean,
+  ) => {
+    const ActionButton = presentation === "floating" ? FloatingActionButton : Button;
+    const inlineButtonClassName =
+      presentation === "inline" ? "h-12 min-h-12 text-base font-medium" : undefined;
+    const inactiveClassName = interactive ? undefined : "pointer-events-none";
+
+    if (editingItem && onCancelEdit) {
+      return (
+        <div
+          className={cn(
+            "flex w-full gap-2",
+            presentation === "floating" && "max-w-sm",
+          )}
+        >
+          <ActionButton
+            type="button"
+            variant="outline"
+            className={cn("flex-1", inlineButtonClassName, inactiveClassName)}
+            onClick={onCancelEdit}
+            disabled={submitting}
+            tabIndex={interactive ? 0 : -1}
+          >
+            Cancel
+          </ActionButton>
+          <ActionButton
+            type="button"
+            onClick={() => void handleSaveItem()}
+            disabled={people.length === 0 || submitting}
+            className={cn("flex-1", inlineButtonClassName, inactiveClassName)}
+            tabIndex={interactive ? 0 : -1}
+          >
+            {submitting ? "Saving…" : "Save changes"}
+          </ActionButton>
+        </div>
+      );
+    }
+
+    return (
+      <ActionButton
+        type="button"
+        onClick={() => void handleSaveItem()}
+        disabled={people.length === 0 || submitting || saveFeedback.active}
+        className={cn(
+          presentation === "inline" && "w-full",
+          inlineButtonClassName,
+          inactiveClassName,
+        )}
+        tabIndex={interactive ? 0 : -1}
+      >
+        <FeedbackIcon active={saveFeedback.active}>
+          <IconPlus className="h-5 w-5" />
+        </FeedbackIcon>
+        {submitting
+          ? "Adding…"
+          : saveFeedback.active
+            ? "Added"
+            : editingItem
+              ? "Save changes"
+              : "Add bill"}
+      </ActionButton>
+    );
+  };
+
   return (
     <div className="space-y-4">
           <div
@@ -604,43 +746,42 @@ export default function BillItemsManager({
             </div>
           </div>
 
-          <TripFloatingActionBar>
-              {editingItem && onCancelEdit ? (
-                <div className="pointer-events-auto flex w-full max-w-sm gap-2">
-                  <FloatingActionButton
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={onCancelEdit}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </FloatingActionButton>
-                  <FloatingActionButton
-                    onClick={() => void handleSaveItem()}
-                    disabled={people.length === 0 || submitting}
-                    className="flex-1"
-                  >
-                    {submitting ? "Saving…" : "Save changes"}
-                  </FloatingActionButton>
-                </div>
-              ) : (
-                <FloatingActionButton
-                  onClick={() => void handleSaveItem()}
-                  disabled={people.length === 0 || submitting || saveFeedback.active}
-                >
-                  <FeedbackIcon active={saveFeedback.active}>
-                    <IconPlus className="h-5 w-5" />
-                  </FeedbackIcon>
-                  {submitting
-                    ? "Adding…"
-                    : saveFeedback.active
-                      ? "Added"
-                      : editingItem
-                        ? "Save changes"
-                        : "Add bill"}
-                </FloatingActionButton>
+          <div
+            ref={inlineActionsRef}
+            className="!mt-6 min-h-12"
+            data-bill-actions="inline"
+          >
+            <div
+              className={cn(
+                "transition-[opacity,transform] duration-300 motion-reduce:transition-none",
+                inlineActionsVisible
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-1 scale-[0.99] opacity-0",
               )}
+              aria-hidden={!inlineActionsVisible}
+              style={{ transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
+            >
+              {renderBillActions("inline", inlineActionsVisible)}
+            </div>
+          </div>
+
+          <TripFloatingActionBar>
+            <div
+              className={cn(
+                "flex w-full justify-center transition-[opacity,transform] duration-300 motion-reduce:transition-none",
+                inlineActionsVisible
+                  ? "translate-y-1 scale-[0.99] opacity-0"
+                  : "translate-y-0 scale-100 opacity-100",
+              )}
+              data-bill-actions="floating"
+              aria-hidden={inlineActionsVisible}
+              style={{
+                pointerEvents: inlineActionsVisible ? "none" : "auto",
+                transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
+            >
+              {renderBillActions("floating", !inlineActionsVisible)}
+            </div>
           </TripFloatingActionBar>
     </div>
   );
