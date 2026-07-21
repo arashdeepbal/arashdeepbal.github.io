@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { ConfirmBottomSheet } from "@/components/ConfirmBottomSheet";
 import { IconBin, IconEdit } from "@/components/icons/app-icons";
 import { IndividualSettlement } from "@/services/database";
@@ -16,12 +17,13 @@ import {
 import { getCurrencyByValue } from "@/lib/currencies";
 import { amountsEqually } from "@/lib/split-total-by-percents";
 import { getLocalDateKey } from "@/lib/local-date-key";
-import PersonAvatar from "./PersonAvatar";
+import { ParticipantIdentity } from "@/components/ParticipantIdentity";
+import { SectionHeading } from "@/components/section-heading";
 import { toast } from "@/lib/app-toast";
-import {
-  REMOVED_PARTICIPANT_AVATAR_SEED,
-  REMOVED_PARTICIPANT_LABEL,
-} from "@/lib/participant-avatar";
+import { REMOVED_PARTICIPANT_LABEL } from "@/lib/participant-avatar";
+import { cn } from "@/lib/utils";
+import { waitForMotion } from "@/lib/motion";
+import { IllustratedState } from "@/components/IllustratedState";
 
 interface ExpenseHistoryProps {
   billItems: BillItem[];
@@ -33,6 +35,51 @@ interface ExpenseHistoryProps {
 }
 
 type HistoryTypeFilter = "all" | "expense" | "settlement";
+
+interface HistoryDateFilterProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+/**
+ * iOS Safari leaves an empty native date input visually blank instead of
+ * rendering a format hint. Keep the native picker, but provide our own hint
+ * until the user chooses a date.
+ */
+function HistoryDateFilter({
+  id,
+  label,
+  value,
+  onChange,
+}: HistoryDateFilterProps) {
+  return (
+    <div className="min-w-0 space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative min-w-0">
+        <Input
+          id={id}
+          type="date"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(
+            "peer min-w-0",
+            !value && "text-transparent focus:text-foreground",
+          )}
+        />
+        {!value ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-base text-muted-foreground transition-opacity peer-focus:opacity-0"
+          >
+            dd/mm/yyyy
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 interface HistoryItem {
   id: string;
@@ -76,6 +123,7 @@ export default function ExpenseHistory({
 }: ExpenseHistoryProps) {
   const [expenseToDelete, setExpenseToDelete] = useState<HistoryItem | null>(null);
   const [settlementToUndo, setSettlementToUndo] = useState<HistoryItem | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<HistoryTypeFilter>("all");
   const [personFilter, setPersonFilter] = useState("all");
@@ -194,19 +242,20 @@ export default function ExpenseHistory({
 
   if (billItems.length === 0 && settlements.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 text-center">
-        <img
-          src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
-          alt=""
-          width={180}
-          height={180}
-          className="empty-state-illustration mb-4"
-          decoding="async"
-        />
-        <p className="text-muted-foreground">
-          Your trip history will appear after you add your first bill.
-        </p>
-      </div>
+      <IllustratedState
+        className="gap-4 py-10"
+        illustration={
+          <img
+            src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
+            alt=""
+            width={180}
+            height={180}
+            className="empty-state-illustration"
+            decoding="async"
+          />
+        }
+        description="Your trip history will appear after you add your first bill."
+      />
     );
   }
 
@@ -239,7 +288,8 @@ export default function ExpenseHistory({
             />
           </div>
 
-          <details className="rounded-lg border border-border bg-card">
+          <Card asChild>
+            <details>
             <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
               Filters
@@ -252,26 +302,24 @@ export default function ExpenseHistory({
             <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="history-type-filter">Entry type</Label>
-              <select
+              <NativeSelect
                 id="history-type-filter"
                 value={typeFilter}
                 onChange={(event) =>
                   setTypeFilter(event.target.value as HistoryTypeFilter)
                 }
-                className="h-12 w-full rounded-md border border-input bg-background px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="all">All entries</option>
                 <option value="expense">Expenses</option>
                 <option value="settlement">Settlements</option>
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-2">
               <Label htmlFor="history-person-filter">Participant</Label>
-              <select
+              <NativeSelect
                 id="history-person-filter"
                 value={personFilter}
                 onChange={(event) => setPersonFilter(event.target.value)}
-                className="h-12 w-full rounded-md border border-input bg-background px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="all">Everyone</option>
                 {people.map((person) => (
@@ -279,15 +327,14 @@ export default function ExpenseHistory({
                     {person.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-2">
               <Label htmlFor="history-currency-filter">Currency</Label>
-              <select
+              <NativeSelect
                 id="history-currency-filter"
                 value={currencyFilter}
                 onChange={(event) => setCurrencyFilter(event.target.value)}
-                className="h-12 w-full rounded-md border border-input bg-background px-3.5 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="all">All currencies</option>
                 {availableCurrencies.map((currency) => (
@@ -295,27 +342,21 @@ export default function ExpenseHistory({
                     {getCurrencyByValue(currency)?.iso ?? currency}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="history-from-date">From</Label>
-                <Input
-                  id="history-from-date"
-                  type="date"
-                  value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="history-to-date">To</Label>
-                <Input
-                  id="history-to-date"
-                  type="date"
-                  value={toDate}
-                  onChange={(event) => setToDate(event.target.value)}
-                />
-              </div>
+              <HistoryDateFilter
+                id="history-from-date"
+                label="From"
+                value={fromDate}
+                onChange={setFromDate}
+              />
+              <HistoryDateFilter
+                id="history-to-date"
+                label="To"
+                value={toDate}
+                onChange={setToDate}
+              />
             </div>
             {hasActiveFilters ? (
               <Button
@@ -335,7 +376,8 @@ export default function ExpenseHistory({
               </Button>
             ) : null}
             </div>
-          </details>
+            </details>
+          </Card>
         </section>
       ) : null}
 
@@ -350,42 +392,45 @@ export default function ExpenseHistory({
 
       {visibleGroups.map(([date, items]) => (
         <section key={date} className="space-y-3" aria-labelledby={`history-${date}`}>
-          <h2
+          <SectionHeading
             id={`history-${date}`}
-            className="text-lg font-semibold tracking-tight text-foreground"
+            className="sm:text-lg"
           >
             {format(new Date(`${date}T00:00:00`), "MMMM d, yyyy")}
-          </h2>
+          </SectionHeading>
           <div className="flex flex-col gap-3">
-            {items.map((item) => {
+            {items.map((item, itemIndex) => {
               if (item.type === "settlement") {
                 const fromPerson = people.find((person) => person.id === item.fromPerson);
                 const toPerson = people.find((person) => person.id === item.toPerson);
                 return (
-                  <Card key={item.id} className="overflow-hidden p-0">
+                  <Card
+                    key={item.id}
+                    className={cn(
+                      "motion-list-enter motion-removable overflow-hidden p-0",
+                    )}
+                    data-removing={removingItemId === item.id ? "true" : "false"}
+                    style={{ animationDelay: `${Math.min(itemIndex, 5) * 40}ms` }}
+                  >
                     <div className="space-y-2 px-4 py-4">
                       <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                         Settlement
                       </span>
                       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-foreground">
-                          <div className="flex min-w-0 items-center gap-2">
-                            {fromPerson ? (
-                              <PersonAvatar name={fromPerson.name} seed={fromPerson.avatarSeed} size="sm" />
-                            ) : null}
-                            <span className="truncate">
-                              {getPersonNameById(item.fromPerson ?? "")}
-                            </span>
-                          </div>
+                          <ParticipantIdentity
+                            person={fromPerson}
+                            fallbackName={getPersonNameById(item.fromPerson ?? "")}
+                            size="sm"
+                            nameClassName="text-sm"
+                          />
                           <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                          <div className="flex min-w-0 items-center gap-2">
-                            {toPerson ? (
-                              <PersonAvatar name={toPerson.name} seed={toPerson.avatarSeed} size="sm" />
-                            ) : null}
-                            <span className="truncate">
-                              {getPersonNameById(item.toPerson ?? "")}
-                            </span>
-                          </div>
+                          <ParticipantIdentity
+                            person={toPerson}
+                            fallbackName={getPersonNameById(item.toPerson ?? "")}
+                            size="sm"
+                            nameClassName="text-sm"
+                          />
                         </div>
                         <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
                           {item.currency} {formatCurrencyAmount(item.amount, item.currency)}
@@ -419,7 +464,12 @@ export default function ExpenseHistory({
               const displaySplits = getDisplayPersonSplits(item);
 
               return (
-                <Card key={item.id} className="overflow-hidden p-0">
+                <Card
+                  key={item.id}
+                  className="motion-list-enter motion-removable overflow-hidden p-0"
+                  data-removing={removingItemId === item.id ? "true" : "false"}
+                  style={{ animationDelay: `${Math.min(itemIndex, 5) * 40}ms` }}
+                >
                   <div className="space-y-4 px-4 pb-2 pt-4">
                     <div>
                       <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
@@ -440,14 +490,12 @@ export default function ExpenseHistory({
                         <dt className="sr-only">Paid by</dt>
                         <dd className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-muted-foreground">Paid by</span>
-                          <span className="inline-flex items-center gap-2">
-                            {paidByPerson ? (
-                              <PersonAvatar name={paidByPerson.name} seed={paidByPerson.avatarSeed} size="sm" />
-                            ) : null}
-                            <span className="font-medium text-foreground">
-                              {getPersonNameById(item.paidBy ?? "")}
-                            </span>
-                          </span>
+                          <ParticipantIdentity
+                            person={paidByPerson}
+                            fallbackName={getPersonNameById(item.paidBy ?? "")}
+                            size="sm"
+                            nameClassName="text-sm"
+                          />
                         </dd>
                       </div>
                     </dl>
@@ -462,16 +510,11 @@ export default function ExpenseHistory({
                             const person = people.find((candidate) => candidate.id === split.personId);
                             return (
                               <li key={split.personId} className="flex items-center justify-between gap-3 text-sm">
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <PersonAvatar
-                                    name={person?.name || REMOVED_PARTICIPANT_LABEL}
-                                    seed={person?.avatarSeed || REMOVED_PARTICIPANT_AVATAR_SEED}
-                                    size="sm"
-                                  />
-                                  <span className="truncate font-medium text-foreground">
-                                    {person?.name ?? REMOVED_PARTICIPANT_LABEL}
-                                  </span>
-                                </span>
+                                <ParticipantIdentity
+                                  person={person}
+                                  size="sm"
+                                  nameClassName="text-sm"
+                                />
                                 <span className="shrink-0 font-medium tabular-nums text-foreground">
                                   {item.currency} {formatCurrencyAmount(split.amount, item.currency)}
                                 </span>
@@ -541,10 +584,16 @@ export default function ExpenseHistory({
         onConfirm={async () => {
           if (!expenseToDelete || !onRemoveItem) return;
           const label = expenseToDelete.description.trim() || "Expense";
-          await onRemoveItem(expenseToDelete.id);
-          toast.success("Expense deleted", {
-            description: `“${label}” was removed from this trip.`,
-          });
+          setRemovingItemId(expenseToDelete.id);
+          try {
+            await waitForMotion(200);
+            await onRemoveItem(expenseToDelete.id);
+            toast.success("Expense deleted", {
+              description: `“${label}” was removed from this trip.`,
+            });
+          } finally {
+            setRemovingItemId(null);
+          }
         }}
       />
 
@@ -559,8 +608,14 @@ export default function ExpenseHistory({
         confirmVariant="default"
         onConfirm={async () => {
           if (!settlementToUndo || !onRemoveSettlement) return;
-          await onRemoveSettlement(settlementToUndo.id);
-          toast.success("Settlement undone");
+          setRemovingItemId(settlementToUndo.id);
+          try {
+            await waitForMotion(200);
+            await onRemoveSettlement(settlementToUndo.id);
+            toast.success("Settlement undone");
+          } finally {
+            setRemovingItemId(null);
+          }
         }}
       />
     </div>

@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** Fixed bottom bar: matches participant sheet / trip edit actions. */
-export const FORM_SUBPAGE_BOTTOM_ACTION_BAR =
-  "border-t border-border bg-background/95 pt-3 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-3";
+const FORM_SUBPAGE_BOTTOM_ACTION_BAR =
+  "border-t border-border bg-background/95 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[calc(0.75rem+var(--safe-area-bottom))]";
 
 export interface FormSubpageHeaderProps {
   title: string;
@@ -75,7 +75,7 @@ export function FormSubpageHeader({
             )}
           >
             <Heading
-              className="min-w-0 flex-1 text-2xl font-bold leading-tight tracking-tight text-foreground"
+              className="min-w-0 flex-1 text-2xl font-semibold leading-tight tracking-tight text-foreground"
               aria-hidden={titleAriaHidden || undefined}
             >
               {title}
@@ -117,7 +117,7 @@ export function FormSubpageHeader({
         Back
       </Button>
       <Heading
-        className="text-2xl font-bold tracking-tight text-foreground"
+        className="text-2xl font-semibold tracking-tight text-foreground"
         aria-hidden={titleAriaHidden || undefined}
       >
         {title}

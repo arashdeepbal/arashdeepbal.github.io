@@ -7,7 +7,9 @@ import { Person } from "@/types";
 import { toast } from "@/lib/app-toast";
 import { cn } from "@/lib/utils";
 import { createAvatarSeedForChosenEmoji, PARTICIPANT_ANIMAL_EMOJIS } from "@/lib/participant-avatar";
-import PersonAvatar from "./PersonAvatar";
+import { ParticipantIdentity } from "@/components/ParticipantIdentity";
+import { Card } from "@/components/ui/card";
+import { waitForMotion } from "@/lib/motion";
 
 export function EmojiPickerSection({
   value,
@@ -30,7 +32,7 @@ export function EmojiPickerSection({
             type="button"
             onClick={() => onChange(i)}
             className={cn(
-              "flex aspect-square w-full min-h-0 min-w-0 items-center justify-center rounded-md border p-0 text-4xl leading-none transition-colors sm:text-5xl",
+              "motion-press flex aspect-square w-full min-h-0 min-w-0 items-center justify-center rounded-md border p-0 text-4xl leading-none transition-[color,background-color,border-color,transform] sm:text-5xl",
               value === i
                 ? "border-primary bg-primary/5"
                 : "border-transparent bg-muted/50 hover:bg-muted"
@@ -81,8 +83,19 @@ function ParticipantRoster({
   showListHeading?: boolean;
 }) {
   const [deleteTarget, setDeleteTarget] = useState<Person | null>(null);
+  const [removingPersonId, setRemovingPersonId] = useState<string | null>(null);
   const isDeletingLastParticipant =
     people.length === 1 && deleteTarget?.id === people[0]?.id;
+
+  const removePersonWithMotion = async (person: Person) => {
+    setRemovingPersonId(person.id);
+    try {
+      await waitForMotion(200);
+      await Promise.resolve(onRemovePerson(person.id));
+    } finally {
+      setRemovingPersonId(null);
+    }
+  };
 
   return (
     <div className="space-y-2">
@@ -92,17 +105,18 @@ function ParticipantRoster({
         </h2>
       ) : null}
       <div className="grid grid-cols-1 gap-3">
-        {people.map((person) => (
-          <div
+        {people.map((person, index) => (
+          <Card
             key={person.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-4"
+            className="motion-list-enter motion-removable flex flex-wrap items-center justify-between gap-3 p-4"
+            data-removing={removingPersonId === person.id ? "true" : "false"}
+            style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
           >
-            <div className="flex min-w-0 items-center">
-              <PersonAvatar name={person.name} seed={person.avatarSeed} />
-              <span className="ml-3 min-w-0 flex-1 truncate font-medium text-foreground">
-                {person.name}
-              </span>
-            </div>
+            <ParticipantIdentity
+              person={person}
+              size="md"
+              className="gap-3"
+            />
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               {onEditPerson ? (
                 <Button
@@ -127,7 +141,7 @@ function ParticipantRoster({
                 Delete
               </Button>
             </div>
-          </div>
+          </Card>
         ))}
         {people.length === 0 && (
           <div className="col-span-full py-10 text-center text-muted-foreground">
@@ -172,7 +186,7 @@ function ParticipantRoster({
         confirmLabel={isDeletingLastParticipant ? "Delete trip" : "Delete"}
         onConfirm={async () => {
           if (deleteTarget) {
-            await Promise.resolve(onRemovePerson(deleteTarget.id));
+            await removePersonWithMotion(deleteTarget);
           }
         }}
       />

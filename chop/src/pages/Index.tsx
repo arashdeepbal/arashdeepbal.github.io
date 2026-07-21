@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,12 @@ import BillSummary from "@/components/BillSummary";
 import ExpenseHistory from "@/components/ExpenseHistory";
 import MoreTabPanel from "@/components/MoreTabPanel";
 import TripBottomNav, { type TripNavSection } from "@/components/TripBottomNav";
+import { TripPageHeader } from "@/components/TripPageHeader";
+import { IllustratedState } from "@/components/IllustratedState";
+import {
+  FloatingActionButton,
+  TripFloatingActionBar,
+} from "@/components/trip-floating-action-bar";
 import { useTripWorkspace } from "@/hooks/use-trip-workspace";
 import {
   forgetRecentTrip,
@@ -29,6 +35,18 @@ const TRIP_PAGE_TITLES: Record<Exclude<TripNavSection, "participants">, string> 
   history: "History",
   more: "Your trip",
 };
+
+const TRIP_NAV_ORDER: TripNavSection[] = [
+  "bill",
+  "summary",
+  "participants",
+  "history",
+  "more",
+];
+
+function scrollTripPageToTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
 
 export default function Index() {
   const { eventId } = useParams();
@@ -62,6 +80,9 @@ export default function Index() {
   /** Default for new line items: stored `value` in `BILL_CURRENCIES` (e.g. `$` for USD). */
   const activeCurrency = "$";
   const [navSection, setNavSection] = useState<TripNavSection>("bill");
+  const [navDirection, setNavDirection] = useState<"forward" | "backward">(
+    "forward",
+  );
   /** Summary tab: at least one debtor line (for page title "Who owes who"). */
   const [summaryHasDebtEntries, setSummaryHasDebtEntries] = useState(false);
   /** Add-participant "sub-page" on Participants tab */
@@ -72,6 +93,8 @@ export default function Index() {
   >(null);
   const [tripEditSheetOpen, setTripEditSheetOpen] = useState(false);
   const [editingBillItemId, setEditingBillItemId] = useState<string | null>(null);
+  const [tripHeaderCompact, setTripHeaderCompact] = useState(false);
+  const tripHeaderSentinelRef = useRef<HTMLDivElement>(null);
 
   const showParticipantOnboarding = loadStatus === "ready" && people.length === 0;
   const showEmptyBillAction =
@@ -82,6 +105,60 @@ export default function Index() {
   const tripPersonToEdit = participantsEditParticipantId
     ? people.find((p) => p.id === participantsEditParticipantId)
     : undefined;
+
+  const tripPageTitle =
+    navSection === "participants"
+      ? `Participants (${people.length})`
+      : navSection === "bill" && editingBillItemId
+        ? "Edit expense"
+        : navSection === "summary" && summaryHasDebtEntries
+          ? "Who owes who"
+          : TRIP_PAGE_TITLES[navSection];
+
+  useLayoutEffect(() => {
+    scrollTripPageToTop();
+  }, [eventId, navSection]);
+
+  const handleNavSectionChange = (section: TripNavSection) => {
+    scrollTripPageToTop();
+    setTripHeaderCompact(false);
+    if (section === navSection) return;
+    setNavDirection(
+      TRIP_NAV_ORDER.indexOf(section) > TRIP_NAV_ORDER.indexOf(navSection)
+        ? "forward"
+        : "backward",
+    );
+    setNavSection(section);
+  };
+
+  useEffect(() => {
+    if (
+      !eventId ||
+      loadStatus !== "ready" ||
+      showParticipantOnboarding ||
+      showTripAccessOnboarding ||
+      !("IntersectionObserver" in window)
+    ) {
+      setTripHeaderCompact(false);
+      return;
+    }
+
+    const sentinel = tripHeaderSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setTripHeaderCompact(entry.intersectionRatio < 1),
+      { threshold: 1 },
+    );
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [
+    eventId,
+    loadStatus,
+    showParticipantOnboarding,
+    showTripAccessOnboarding,
+  ]);
 
   useEffect(() => {
     if (people.length > 0) {
@@ -277,7 +354,7 @@ export default function Index() {
 
   if (loadStatus === "loading") {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-card">
         <main className="app-page">
           <div className="flex flex-col items-center mb-8 py-4 space-y-3">
             <Skeleton className="h-9 w-48" />
@@ -295,43 +372,47 @@ export default function Index() {
   if (loadStatus === "error") {
     const tripWasNotFound = loadError === "not-found";
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-card">
         <main className="app-page flex flex-col items-center justify-center text-center">
-          <div className="max-w-sm space-y-4">
-            {tripWasNotFound ? (
-              <img
-                src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
-                alt=""
-                width={180}
-                height={180}
-                className="empty-state-illustration mx-auto block"
-                decoding="async"
-              />
-            ) : null}
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {tripWasNotFound ? "Trip not found" : "Couldn’t load this trip"}
-            </h1>
-            <p className="text-muted-foreground">
-              {tripWasNotFound
+          <IllustratedState
+            className="max-w-sm gap-4"
+            illustration={
+              tripWasNotFound ? (
+                <img
+                  src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
+                  alt=""
+                  width={180}
+                  height={180}
+                  className="empty-state-illustration"
+                  decoding="async"
+                />
+              ) : undefined
+            }
+            title={tripWasNotFound ? "Trip not found" : "Couldn’t load this trip"}
+            titleAs="h1"
+            description={
+              tripWasNotFound
                 ? "This trip may have been deleted, or the link or access code may be incorrect."
-                : "Check your connection and try again. No trip information was changed."}
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                : "Check your connection and try again. No trip information was changed."
+            }
+            actions={
+              <>
               <Button type="button" onClick={() => navigate("/", { replace: true })}>
                 Go to home
               </Button>
               <Button type="button" variant="outline" onClick={() => void reload()}>
                 Try again
               </Button>
-            </div>
-          </div>
+              </>
+            }
+          />
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-card">
       <main
         className={
           showParticipantOnboarding || showTripAccessOnboarding
@@ -342,19 +423,22 @@ export default function Index() {
         {showParticipantOnboarding ? (
           <>
             <div className="w-full space-y-6">
-              <div className="space-y-3 text-center">
-                <img
-                  src={`${import.meta.env.BASE_URL}participants-illustration.webp`}
-                  alt="Smiling man and woman standing together, representing a group of participants."
-                  width={180}
-                  height={180}
-                  className="empty-state-illustration mx-auto block"
-                  decoding="async"
-                />
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  Add participants
-                </h1>
-              </div>
+              <IllustratedState
+                as="header"
+                className="gap-3"
+                illustration={
+                  <img
+                    src={`${import.meta.env.BASE_URL}participants-illustration.webp`}
+                    alt="Smiling man and woman standing together, representing a group of participants."
+                    width={180}
+                    height={180}
+                    className="empty-state-illustration"
+                    decoding="async"
+                  />
+                }
+                title="Add participants"
+                titleAs="h1"
+              />
               <ParticipantOnboardingForm
                 people={pendingPeople}
                 onPeopleChange={setPendingPeople}
@@ -372,35 +456,28 @@ export default function Index() {
         ) : (
           <>
             {eventId && (
-              <div className="relative left-1/2 z-0 mb-4 w-screen min-w-0 -translate-x-1/2 border-b border-border bg-white">
-                <header className="mx-auto w-full max-w-app px-4 pb-4">
-                  <p className="mb-1 truncate text-sm font-medium text-muted-foreground">
-                    {eventName.trim() || "Trip"}
-                  </p>
-                  {navSection === "participants" && (
-                    <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight text-foreground">
-                      Participants ({people.length})
-                    </h1>
-                  )}
-                  {navSection !== "participants" && (
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      {navSection === "bill" && editingBillItemId
-                        ? "Edit expense"
-                        : navSection === "summary" && summaryHasDebtEntries
-                          ? "Who owes who"
-                          : TRIP_PAGE_TITLES[navSection]}
-                    </h1>
-                  )}
-                </header>
-              </div>
+              <>
+                <div
+                  ref={tripHeaderSentinelRef}
+                  className="-mb-px h-px w-full"
+                  aria-hidden
+                />
+                <TripPageHeader
+                  tripName={eventName}
+                  title={tripPageTitle}
+                  compact={tripHeaderCompact}
+                />
+              </>
             )}
             <div
+              key={navSection}
+              data-direction={navDirection}
               className={
                 navSection === "participants" ||
                 navSection === "bill" ||
                 showEmptyBillAction
-                  ? "pb-[calc(3.5rem+6.5rem+var(--bottom-nav-safe-area))]"
-                  : "pb-[calc(3.5rem+var(--bottom-nav-safe-area))]"
+                  ? "trip-tab-enter pb-[calc(3.5rem+6.5rem+var(--safe-area-bottom))]"
+                  : "trip-tab-enter pb-[calc(3.5rem+var(--safe-area-bottom))]"
               }
             >
               {eventId && navSection === "bill" && (
@@ -461,8 +538,7 @@ export default function Index() {
                     onRemoveSettlement={handleRemoveSettlement}
                     onEditItem={(item) => {
                       setEditingBillItemId(item.id);
-                      setNavSection("bill");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      handleNavSectionChange("bill");
                     }}
                   />
                 </div>
@@ -480,28 +556,24 @@ export default function Index() {
 
             {eventId &&
               (navSection === "participants" || showEmptyBillAction) && (
-              <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[60]">
-                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+1rem+var(--bottom-nav-safe-area))]">
-                  <Button
+              <TripFloatingActionBar>
+                  <FloatingActionButton
                     type="button"
-                    className="pointer-events-auto h-12 min-h-12 min-w-0 gap-2 rounded-full px-5 text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
                     onClick={() => {
                       if (navSection === "participants") {
                         setParticipantsAddView(true);
                         setParticipantsEditParticipantId(null);
                         return;
                       }
-                      setNavSection("bill");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      handleNavSectionChange("bill");
                     }}
                   >
                     <IconPlus className="h-5 w-5 shrink-0" />
                     {navSection === "participants"
                       ? "Add participant"
                       : "Add your first bill"}
-                  </Button>
-                </div>
-              </div>
+                  </FloatingActionButton>
+              </TripFloatingActionBar>
               )}
 
             {eventId && navSection === "participants" && (
@@ -538,7 +610,7 @@ export default function Index() {
             )}
 
             {eventId && (
-              <TripBottomNav active={navSection} onChange={setNavSection} />
+              <TripBottomNav active={navSection} onChange={handleNavSectionChange} />
             )}
           </>
         )}

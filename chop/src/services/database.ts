@@ -3,15 +3,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { removeParticipantFromBillItem } from "@/lib/remove-participant-references";
 import type { BillItem, Person, PersonSplit } from "@/types";
 
-export interface DatabaseParticipant {
-  id: string;
-  event_id: string;
-  name: string;
-  avatar_seed: string;
-  created_at: string;
-}
-
-export interface DatabaseBillItem {
+interface DatabaseBillItem {
   id: string;
   event_id: string;
   description: string;

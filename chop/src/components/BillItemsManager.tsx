@@ -27,6 +27,12 @@ import {
 } from "@/lib/bill-form-preferences";
 import { cn } from "@/lib/utils";
 import PersonAvatar from "./PersonAvatar";
+import { FeedbackIcon } from "@/components/FeedbackIcon";
+import { useTransientFeedback } from "@/hooks/use-transient-feedback";
+import {
+  FloatingActionButton,
+  TripFloatingActionBar,
+} from "@/components/trip-floating-action-bar";
 
 interface BillItemsManagerProps {
   billItems: BillItem[];
@@ -60,6 +66,7 @@ export default function BillItemsManager({
   const [personAmounts, setPersonAmounts] = useState<Record<string, string>>({});
   const [personPercents, setPersonPercents] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const saveFeedback = useTransientFeedback(1200);
   const lastPercentageSharedKeyRef = useRef<string>("");
   const previousEditingItemIdRef = useRef<string | null>(null);
   const skipNextSharedAmountPruneRef = useRef(false);
@@ -319,6 +326,7 @@ export default function BillItemsManager({
         lastPercentageSharedKeyRef.current = "";
       }
       if (!editingItem) {
+        saveFeedback.trigger();
         toast.success("Item added to the bill!", { id: "bill-save" });
       }
     } catch {
@@ -374,7 +382,13 @@ export default function BillItemsManager({
 
   return (
     <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
+          <div
+            key={saveFeedback.sequence}
+            className={cn(
+              "grid grid-cols-1 gap-4",
+              saveFeedback.sequence > 0 && "bill-form-reset",
+            )}
+          >
             {/* Description row - full width */}
             <div className="space-y-2.5">
               <Label htmlFor="description">Description</Label>
@@ -437,19 +451,19 @@ export default function BillItemsManager({
             >
               <ToggleGroupItem
                 value="equal"
-                className="text-sm rounded-full border border-input bg-white px-4 py-1.5 text-muted-foreground hover:bg-accent data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                className="text-sm rounded-full border border-input bg-card px-4 py-1.5 text-muted-foreground hover:bg-accent data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 Equally
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="amount"
-                className="text-sm rounded-full border border-input bg-white px-4 py-1.5 text-muted-foreground hover:bg-accent data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                className="text-sm rounded-full border border-input bg-card px-4 py-1.5 text-muted-foreground hover:bg-accent data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 By amount
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="percentage"
-                className="text-sm rounded-full border border-input bg-white px-4 py-1.5 text-muted-foreground hover:bg-accent data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                className="text-sm rounded-full border border-input bg-card px-4 py-1.5 text-muted-foreground hover:bg-accent data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 By %
               </ToggleGroupItem>
@@ -590,39 +604,44 @@ export default function BillItemsManager({
             </div>
           </div>
 
-          <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[60]">
-            <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+1rem+var(--bottom-nav-safe-area))]">
+          <TripFloatingActionBar>
               {editingItem && onCancelEdit ? (
                 <div className="pointer-events-auto flex w-full max-w-sm gap-2">
-                  <Button
+                  <FloatingActionButton
                     type="button"
                     variant="outline"
-                    className="h-12 min-h-12 flex-1 rounded-full text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
+                    className="flex-1"
                     onClick={onCancelEdit}
                     disabled={submitting}
                   >
                     Cancel
-                  </Button>
-                  <Button
+                  </FloatingActionButton>
+                  <FloatingActionButton
                     onClick={() => void handleSaveItem()}
                     disabled={people.length === 0 || submitting}
-                    className="h-12 min-h-12 flex-1 rounded-full text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
+                    className="flex-1"
                   >
                     {submitting ? "Saving…" : "Save changes"}
-                  </Button>
+                  </FloatingActionButton>
                 </div>
               ) : (
-                <Button
+                <FloatingActionButton
                   onClick={() => void handleSaveItem()}
-                  disabled={people.length === 0 || submitting}
-                  className="pointer-events-auto h-12 min-h-12 min-w-0 gap-2 rounded-full px-5 text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"
+                  disabled={people.length === 0 || submitting || saveFeedback.active}
                 >
-                  <IconPlus className="h-5 w-5 shrink-0" />
-                  {submitting ? "Adding…" : editingItem ? "Save changes" : "Add bill"}
-                </Button>
+                  <FeedbackIcon active={saveFeedback.active}>
+                    <IconPlus className="h-5 w-5" />
+                  </FeedbackIcon>
+                  {submitting
+                    ? "Adding…"
+                    : saveFeedback.active
+                      ? "Added"
+                      : editingItem
+                        ? "Save changes"
+                        : "Add bill"}
+                </FloatingActionButton>
               )}
-            </div>
-          </div>
+          </TripFloatingActionBar>
     </div>
   );
 }

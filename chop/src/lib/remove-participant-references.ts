@@ -2,7 +2,7 @@ import type { BillItem, PersonSplit } from "@/types";
 import { getCurrencyFractionDigits } from "@/lib/format-amount";
 import { amountsFromWeights } from "@/lib/split-total-by-percents";
 
-export function removeParticipantFromPersonSplits(
+function removeParticipantFromPersonSplits(
   splits: PersonSplit[] | undefined,
   participantId: string,
 ): PersonSplit[] | undefined {

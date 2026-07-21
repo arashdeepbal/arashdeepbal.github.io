@@ -1,13 +1,9 @@
 import { useState, type ReactNode } from "react";
-import {
-  FormSubpageBottomBar,
-  FormSubpageHeader,
-} from "@/components/form-subpage-layout";
+import { FormBottomSheet } from "@/components/bottom-sheet-layout";
 import { IconBin } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
-export interface ConfirmBottomSheetProps {
+interface ConfirmBottomSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -52,59 +48,26 @@ export function ConfirmBottomSheet({
   };
 
   return (
-    <Sheet
+    <FormBottomSheet
       open={open}
-      onOpenChange={(next) => {
-        if (!next && !submitting) onOpenChange(false);
+      onOpenChange={onOpenChange}
+      title={title}
+      description={
+        typeof description === "string"
+          ? description
+          : `Review the details and choose ${confirmLabel} or ${cancelLabel}.`
+      }
+      submitting={submitting}
+      headerProps={{
+        showTitleDivider: false,
+        showCloseButton: visual !== "delete",
+        className: visual === "delete" ? "pt-6 pb-1" : undefined,
       }}
-    >
-      <SheetContent
-        side="bottom"
-        hideClose
-        className="flex max-h-[min(96dvh,900px)] flex-col gap-0 rounded-t-2xl border-border p-0"
-        onPointerDownOutside={(e) => {
-          if (submitting) e.preventDefault();
-        }}
-        onEscapeKeyDown={(e) => {
-          if (submitting) e.preventDefault();
-        }}
-      >
-        <SheetTitle className="sr-only">{title}</SheetTitle>
-        <FormSubpageHeader
-          variant="title-close"
-          title={title}
-          onBack={handleClose}
-          backDisabled={submitting}
-          titleElement="h2"
-          titleAriaHidden
-          showTitleDivider={false}
-          showCloseButton={visual !== "delete"}
-          className={
-            visual === "delete" ? "pt-6 pb-1" : undefined
-          }
-        />
-
-        <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-app flex-1 flex-col">
-          <div
-            className={
-              visual === "delete"
-                ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-0"
-                : "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-1"
-            }
-          >
-            <div
-              className={
-                visual === "delete"
-                  ? "space-y-1 text-left text-base leading-snug text-muted-foreground"
-                  : "space-y-2 text-left text-base leading-relaxed text-muted-foreground"
-              }
-            >
-              {description}
-            </div>
-          </div>
-        </div>
-
-        <FormSubpageBottomBar>
+      bodyClassName={
+        visual === "delete" ? "pb-6 pt-0" : "pb-6 pt-1"
+      }
+      actions={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -126,8 +89,18 @@ export function ConfirmBottomSheet({
             ) : null}
             {submitting ? "Please wait…" : confirmLabel}
           </Button>
-        </FormSubpageBottomBar>
-      </SheetContent>
-    </Sheet>
+        </>
+      }
+    >
+      <div
+        className={
+          visual === "delete"
+            ? "space-y-1 text-left text-base leading-snug text-muted-foreground"
+            : "space-y-2 text-left text-base leading-relaxed text-muted-foreground"
+        }
+      >
+        {description}
+      </div>
+    </FormBottomSheet>
   );
 }

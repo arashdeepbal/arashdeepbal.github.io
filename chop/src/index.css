@@ -36,8 +36,9 @@
 
     --radius: 0.5rem;
 
-    /* Bottom navigation stays compact in browsers; standalone mode opts into the real device inset. */
-    --bottom-nav-safe-area: 0px;
+    /* Browser chrome handles insets on the web; installed mode opts into the real device insets. */
+    --safe-area-bottom: 0px;
+    --safe-area-top: 0px;
   }
 
   .dark {
@@ -73,25 +74,27 @@
 
 @media (display-mode: standalone) {
   :root {
-    --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-top: env(safe-area-inset-top, 0px);
   }
 
   html,
   body,
   #root {
-    background-color: #fff;
+    background-color: hsl(var(--card));
   }
 }
 
 /* Older iOS Home Screen web apps expose navigator.standalone instead. */
 :root[data-standalone="true"] {
-  --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
 }
 
 :root[data-standalone="true"],
 :root[data-standalone="true"] body,
 :root[data-standalone="true"] #root {
-  background-color: #fff;
+  background-color: hsl(var(--card));
 }
 
 @layer base {
@@ -113,6 +116,178 @@
   /** Empty state artwork: one size everywhere (180×180). */
   .empty-state-illustration {
     @apply h-[180px] w-[180px] max-w-full object-contain;
+  }
+
+  .trip-tab-enter {
+    animation: trip-tab-enter-forward 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .trip-tab-enter[data-direction="backward"] {
+    animation-name: trip-tab-enter-backward;
+  }
+
+  .trip-nav-indicator {
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sheet-motion[data-state="open"] {
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sheet-motion[data-state="closed"] {
+    animation-timing-function: ease-in;
+  }
+
+  .motion-press {
+    transition:
+      color 150ms ease-out,
+      background-color 150ms ease-out,
+      border-color 150ms ease-out,
+      transform 150ms ease-out;
+  }
+
+  .motion-press:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .feedback-icon-default,
+  .feedback-icon-success {
+    transition:
+      opacity 180ms ease-out,
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .feedback-icon-default {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  .feedback-icon-success {
+    opacity: 0;
+    transform: scale(0.45) rotate(18deg);
+  }
+
+  .feedback-icon[data-success="true"] .feedback-icon-default {
+    opacity: 0;
+    transform: scale(0.45) rotate(-18deg);
+  }
+
+  .feedback-icon[data-success="true"] .feedback-icon-success {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  .bill-form-reset {
+    animation: bill-form-reset 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .motion-amount-change {
+    animation: amount-change 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .motion-list-enter {
+    animation: list-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-removable {
+    max-height: 80rem;
+    transform-origin: top center;
+    transition:
+      max-height 200ms ease-in-out,
+      opacity 160ms ease-out,
+      transform 200ms ease-in-out;
+  }
+
+  .motion-removable[data-removing="true"] {
+    animation: none;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  .settled-dog-pop {
+    animation: settled-dog-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .settled-paw {
+    position: absolute;
+    z-index: 1;
+    font-size: 1.15rem;
+    opacity: 0;
+    filter: saturate(0.75);
+    animation: settled-paw-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .settled-paw-one {
+    left: 0.25rem;
+    top: 2.25rem;
+    rotate: -18deg;
+    animation-delay: 120ms;
+  }
+
+  .settled-paw-two {
+    right: 0;
+    top: 4.5rem;
+    rotate: 18deg;
+    animation-delay: 220ms;
+  }
+
+  .settled-paw-three {
+    bottom: 1.25rem;
+    left: 1.5rem;
+    rotate: -8deg;
+    animation-delay: 320ms;
+  }
+
+  .trip-page-header {
+    @apply z-40 mb-4 border-b border-border bg-card;
+    position: sticky;
+    top: 0;
+    width: calc(100% + 2rem);
+    margin-inline: -1rem;
+    isolation: isolate;
+    transition:
+      background-color 200ms ease-out,
+      border-color 200ms ease-out;
+  }
+
+  .trip-page-header[data-compact="true"] {
+    @apply border-transparent bg-transparent;
+  }
+
+  .trip-page-header-material {
+    position: absolute;
+    inset: 0 0 -1.5rem;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 92%) 0%,
+      rgb(255 255 255 / 78%) 66%,
+      rgb(255 255 255 / 0%) 100%
+    );
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 68%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 68%,
+      transparent 100%
+    );
+    transition: opacity 200ms ease-out;
+  }
+
+  .trip-page-header[data-compact="true"] .trip-page-header-material {
+    opacity: 1;
   }
 
   /**
@@ -186,20 +361,111 @@
   }
 }
 
-@layer utilities {
-  .bill-card {
-    @apply bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all;
+@media (prefers-reduced-transparency: reduce) {
+  .trip-page-header-material {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 98%) 0%,
+      rgb(255 255 255 / 90%) 70%,
+      rgb(255 255 255 / 0%) 100%
+    );
   }
 }
 
-/* Animation for the total amount display */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+@keyframes trip-tab-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
+@keyframes trip-tab-enter-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bill-form-reset {
+  from {
+    opacity: 0.6;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes amount-change {
+  from {
+    opacity: 0.45;
+    transform: translateY(3px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes list-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes settled-dog-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.88) rotate(-1deg);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.025) rotate(0.5deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes settled-paw-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.5);
+  }
+
+  65% {
+    opacity: 0.72;
+    transform: translateY(-2px) scale(1.08);
+  }
+
+  100% {
+    opacity: 0.55;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -210,5 +476,17 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .trip-tab-enter,
+  .bill-form-reset,
+  .motion-amount-change,
+  .motion-list-enter,
+  .settled-dog-pop {
+    animation: none !important;
+  }
+
+  .settled-paw {
+    display: none;
   }
 }

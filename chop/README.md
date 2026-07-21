@@ -44,7 +44,7 @@ The trip workspace has five sections: **Bill**, **Summary**, **Participants**, *
 | `src/lib/*.test.ts` | Vitest unit coverage for amount formatting and split/debt calculations |
 | `src/types/` | Shared application types |
 | `supabase/migrations/` | Database schema and incremental migrations |
-| `public/` | Favicons and optimized WebP illustrations |
+| `public/` | Favicons, PWA assets, and PNG/WebP illustrations |
 | `scripts/optimize-images.mjs` | Converts source PNG illustrations in `public/` to WebP |
 
 ### Routes
@@ -71,13 +71,11 @@ The frontend loads a trip into React state and writes changes directly through `
 ## Tech stack
 
 - React 18 and TypeScript
-- Vite 8 with SWC
+- Vite 8
 - Tailwind CSS 3
 - shadcn/ui and Radix UI
 - Supabase Postgres
 - React Router
-- TanStack Query
-- React Hook Form and Zod
 - date-fns, Lucide icons, and Sonner toasts
 
 ## Local development
@@ -98,15 +96,12 @@ npm run dev
 
 Vite serves the app at [http://localhost:8080](http://localhost:8080).
 
-This repository contains both `package-lock.json` and `bun.lockb`. The examples use npm; if you use Bun instead, avoid updating only one lockfile in a dependency change.
-
 ### Available commands
 
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the local Vite server on port 8080 |
 | `npm run build` | Create a production build in `dist/` |
-| `npm run build:dev` | Build using Vite's development mode |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint across the project |
 | `npm test` | Run the Vitest unit suite once |
@@ -135,7 +130,7 @@ To use a different Supabase project:
 3. Update the URL and publishable client key in `src/integrations/supabase/client.ts`, or refactor the client to read your own Vite environment variables.
 4. Regenerate `src/integrations/supabase/types.ts` after changing the schema.
 
-The repository's `.env` contains Lovable-generated `VITE_SUPABASE_*` variables, but the current client does not read them. Never put a Supabase `service_role` key or another server secret in this frontend.
+Never put a Supabase `service_role` key or another server secret in this frontend.
 
 ### Access and privacy warning
 
@@ -154,11 +149,24 @@ npm run build:chop
 
 The production build is written to `chop/dist/`. The repository's GitHub Pages workflow combines that build with the parent portfolio only inside its deployment artifact, so the repository keeps a single `chop/` source folder. GitHub Pages serves it at [https://arashbal.com/chop/](https://arashbal.com/chop/). The portfolio's root `404.html` redirects direct visits to nested app routes back into React Router, so shared `/chop/bill/:eventId` links work on GitHub Pages.
 
-The original project is also connected to [Lovable](https://lovable.dev/projects/ec840a9c-030b-4e90-84e9-4657190fa5b0).
+## Ideas for future exploration
+
+These are deferred concepts rather than planned changes. The current bottom navigation remains the intended experience for now.
+
+### Platform-aware bottom navigation
+
+- Explore an optional light Liquid Glass treatment on iOS while retaining the current navigation on Android and unsupported or unidentified platforms.
+- Keep one shared navigation component and interaction model; only its visual treatment should vary by platform.
+- Preserve Chop's blue active state, existing icons, labels, semantics, and touch-target sizes.
+- For the iOS treatment, use native light label tones, balanced top and bottom insets, and a tight 2–3 px gap between each icon and label.
+- Apply the glass treatment only when iOS and `backdrop-filter` support are both detected. The existing navigation should remain the default and fallback.
+- Before implementation, validate browser and installed-PWA safe areas, reduced-transparency and reduced-motion preferences, older-device performance, and the spacing between the navigation and floating primary actions.
+- Dark mode is outside the initial exploration and can be considered separately later.
+
+The exploratory comparison is available in [Figma](https://www.figma.com/design/RNUO7c1mvqXkasbCpmcJOs?node-id=1-2).
 
 ## Project notes
 
-- `.lovable/plan.md` is an implementation note from a previous Lovable change, not the canonical product specification.
 - `src/integrations/supabase/types.ts` is generated and should not be edited manually.
 - There is no license file in this repository.
 - Notable historical changes are summarized in [CHANGELOG.md](CHANGELOG.md).

@@ -50,14 +50,14 @@ const Toaster = ({ className, icons, toastOptions, ...rest }: ToasterProps) => {
             toastOptions?.classNames?.closeButton
           ),
           success: cn("!border-emerald-200/90 !bg-emerald-50/95", toastOptions?.classNames?.success),
-          error: cn("!border-red-200/90 !bg-red-50/95", toastOptions?.classNames?.error),
+          error: cn("!border-destructive/30 !bg-destructive/10", toastOptions?.classNames?.error),
           warning: cn("!border-amber-200/90 !bg-amber-50/95", toastOptions?.classNames?.warning),
           info: cn("!border-primary/20 !bg-primary/5", toastOptions?.classNames?.info),
         },
       }}
       icons={{
         success: <CheckCircle2 className="size-5 text-emerald-600" strokeWidth={2} aria-hidden />,
-        error: <AlertCircle className="size-5 text-red-600" strokeWidth={2} aria-hidden />,
+        error: <AlertCircle className="size-5 text-destructive" strokeWidth={2} aria-hidden />,
         warning: <AlertCircle className="size-5 text-amber-600" strokeWidth={2} aria-hidden />,
         info: <Info className="size-5 text-primary" strokeWidth={2} aria-hidden />,
         loading: <Loader2 className="size-5 animate-spin text-primary" strokeWidth={2} aria-hidden />,

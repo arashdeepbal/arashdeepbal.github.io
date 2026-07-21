@@ -1,10 +1,14 @@
 import { IconCopy, IconEdit, IconSignOut } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { SectionHeading } from "@/components/section-heading";
 import { TRIP_ACCESS_GUIDANCE } from "@/lib/trip-access-guidance";
 import { toast } from "@/lib/app-toast";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { copyText, shareTrip } from "@/lib/share-trip";
+import { FeedbackIcon } from "@/components/FeedbackIcon";
+import { useTransientFeedback } from "@/hooks/use-transient-feedback";
 
 const moreMenuListItemClass = cn(
   "-mx-3 h-auto min-h-14 w-[calc(100%+1.5rem)] justify-start gap-3 rounded-lg border-0 shadow-none",
@@ -26,6 +30,8 @@ export default function MoreTabPanel({
   onEditTrip,
   onExitTrip,
 }: MoreTabPanelProps) {
+  const copyFeedback = useTransientFeedback();
+  const shareFeedback = useTransientFeedback();
   const tripUrl = new URL(
     `bill/${eventId}`,
     `${window.location.origin}${import.meta.env.BASE_URL}`,
@@ -34,6 +40,7 @@ export default function MoreTabPanel({
   const copyAccessCode = async () => {
     try {
       await copyText(eventId);
+      copyFeedback.trigger();
       toast.success("Access code copied", { id: "more-copy-access-code" });
     } catch {
       toast.error("Couldn’t copy the access code", { id: "more-copy-access-code" });
@@ -43,6 +50,7 @@ export default function MoreTabPanel({
   const handleShareTrip = async () => {
     try {
       const result = await shareTrip({ tripName, tripUrl });
+      if (result !== "cancelled") shareFeedback.trigger();
       if (result === "copied") {
         toast.success("Sharing isn’t available, so the trip URL was copied", {
           id: "more-share-trip",
@@ -55,7 +63,7 @@ export default function MoreTabPanel({
 
   return (
     <div className="space-y-8">
-      <div className="rounded-lg border border-border bg-card p-4 shadow-md">
+      <Card variant="elevated" className="p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1 text-left">
             <p className="text-sm text-muted-foreground">Name of trip</p>
@@ -75,15 +83,12 @@ export default function MoreTabPanel({
             </Button>
           </div>
         </div>
-      </div>
+      </Card>
 
       <section className="space-y-2" aria-labelledby="more-actions-heading">
-        <h2
-          id="more-actions-heading"
-          className="text-lg font-semibold tracking-tight text-foreground sm:text-xl"
-        >
+        <SectionHeading id="more-actions-heading">
           Actions
-        </h2>
+        </SectionHeading>
         <ul className="m-0 flex w-full list-none flex-col divide-y divide-border p-0">
           <li>
             <Button
@@ -92,14 +97,15 @@ export default function MoreTabPanel({
               className={moreMenuListItemClass}
               onClick={() => void handleShareTrip()}
             >
-              <img
-                src={`${import.meta.env.BASE_URL}share.svg`}
-                alt=""
-                width={20}
-                height={20}
-                className="h-5 w-5 shrink-0"
-                aria-hidden
-              />
+              <FeedbackIcon active={shareFeedback.active}>
+                <img
+                  src={`${import.meta.env.BASE_URL}share.svg`}
+                  alt=""
+                  width={20}
+                  height={20}
+                  className="h-5 w-5"
+                />
+              </FeedbackIcon>
               <span className="text-foreground">Share trip</span>
             </Button>
           </li>
@@ -111,7 +117,9 @@ export default function MoreTabPanel({
               onClick={() => void copyAccessCode()}
             >
               <span className="flex min-w-0 flex-1 items-center gap-3">
-                <IconCopy className="h-5 w-5 shrink-0 text-[#252C38]" />
+                <FeedbackIcon active={copyFeedback.active}>
+                  <IconCopy className="h-5 w-5 text-foreground" />
+                </FeedbackIcon>
                 <span className="text-foreground">Copy access code</span>
               </span>
               <span
@@ -128,7 +136,7 @@ export default function MoreTabPanel({
               variant="ghost"
               className={cn(
                 moreMenuListItemClass,
-                "text-red-600 hover:bg-red-50 hover:text-red-700 active:bg-red-100/80 active:text-red-800",
+                "text-destructive hover:bg-destructive/10 hover:text-destructive active:bg-destructive/15 active:text-destructive",
               )}
               onClick={onExitTrip}
             >
@@ -140,12 +148,9 @@ export default function MoreTabPanel({
       </section>
 
       <section className="space-y-2" aria-labelledby="more-good-to-know-heading">
-        <h2
-          id="more-good-to-know-heading"
-          className="text-lg font-semibold tracking-tight text-foreground sm:text-xl"
-        >
+        <SectionHeading id="more-good-to-know-heading">
           Access and sharing
-        </h2>
+        </SectionHeading>
         <ul className="m-0 flex w-full list-none flex-col divide-y divide-border p-0">
           {TRIP_ACCESS_GUIDANCE.map(
             (message) => (

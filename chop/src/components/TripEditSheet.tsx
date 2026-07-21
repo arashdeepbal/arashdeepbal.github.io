@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  FormSubpageBottomBar,
-  FormSubpageHeader,
-} from "@/components/form-subpage-layout";
+import { FormBottomSheet } from "@/components/bottom-sheet-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { updateEvent } from "@/services/database";
 import { toast } from "@/lib/app-toast";
 
-export interface TripEditSheetProps {
+interface TripEditSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId: string;
@@ -64,57 +60,14 @@ export function TripEditSheet({
   };
 
   return (
-    <Sheet
+    <FormBottomSheet
       open={open}
-      onOpenChange={(next) => {
-        if (!next && !submitting) {
-          onOpenChange(false);
-        }
-      }}
-    >
-      <SheetContent
-        side="bottom"
-        hideClose
-        className="flex max-h-[min(96dvh,900px)] flex-col gap-0 rounded-t-2xl border-border p-0"
-        onPointerDownOutside={(e) => {
-          if (submitting) e.preventDefault();
-        }}
-        onEscapeKeyDown={(e) => {
-          if (submitting) e.preventDefault();
-        }}
-      >
-        <SheetTitle className="sr-only">Edit trip details</SheetTitle>
-        <FormSubpageHeader
-          variant="title-close"
-          title="Edit trip details"
-          onBack={handleClose}
-          backDisabled={submitting}
-          titleElement="h2"
-        />
-
-        <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-app flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6">
-            <div className="space-y-2">
-              <Label htmlFor="trip-edit-sheet-name">Trip name</Label>
-              <Input
-                ref={inputRef}
-                id="trip-edit-sheet-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Trip name"
-                className="min-w-0 w-full bg-white"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !submitting) {
-                    e.preventDefault();
-                    void handleSave();
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <FormSubpageBottomBar>
+      onOpenChange={onOpenChange}
+      title="Edit trip details"
+      description="Change the name of this trip."
+      submitting={submitting}
+      actions={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -132,8 +85,26 @@ export function TripEditSheet({
           >
             {submitting ? "Saving…" : "Save changes"}
           </Button>
-        </FormSubpageBottomBar>
-      </SheetContent>
-    </Sheet>
+        </>
+      }
+    >
+      <div className="space-y-2">
+        <Label htmlFor="trip-edit-sheet-name">Trip name</Label>
+        <Input
+          ref={inputRef}
+          id="trip-edit-sheet-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Trip name"
+          className="min-w-0 w-full bg-card"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !submitting) {
+              e.preventDefault();
+              void handleSave();
+            }
+          }}
+        />
+      </div>
+    </FormBottomSheet>
   );
 }

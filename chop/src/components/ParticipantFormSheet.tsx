@@ -1,18 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { IconPlus } from "@/components/icons/app-icons";
-import {
-  FormSubpageBottomBar,
-  FormSubpageHeader,
-} from "@/components/form-subpage-layout";
+import { FormBottomSheet } from "@/components/bottom-sheet-layout";
 import { EmojiPickerSection } from "@/components/ParticipantsManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   createAvatarSeedForChosenEmoji,
   getEmojiIndexForAvatarSeed,
@@ -20,7 +12,7 @@ import {
 import type { Person } from "@/types";
 import { toast } from "@/lib/app-toast";
 
-export interface ParticipantFormSheetProps {
+interface ParticipantFormSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   variant: "add" | "edit";
@@ -145,60 +137,18 @@ export function ParticipantFormSheet({
         : "Save changes";
 
   return (
-    <Sheet
+    <FormBottomSheet
       open={open}
-      onOpenChange={(next) => {
-        if (!next && !submitting) {
-          onOpenChange(false);
-        }
-      }}
-    >
-      <SheetContent
-        side="bottom"
-        hideClose
-        className="flex max-h-[min(96dvh,900px)] flex-col gap-0 rounded-t-2xl border-border p-0"
-        onPointerDownOutside={(e) => {
-          if (submitting) e.preventDefault();
-        }}
-        onEscapeKeyDown={(e) => {
-          if (submitting) e.preventDefault();
-        }}
-      >
-        <SheetTitle className="sr-only">{title}</SheetTitle>
-        <FormSubpageHeader
-          variant="title-close"
-          title={title}
-          onBack={handleClose}
-          backDisabled={submitting}
-          titleElement="h2"
-        />
-
-        <div className="mx-auto flex min-h-0 w-full min-w-0 max-w-app flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6">
-            <div className="space-y-10">
-              <div className="space-y-2">
-                <Label htmlFor="participant-form-sheet-name">Name</Label>
-                <Input
-                  ref={nameInputRef}
-                  id="participant-form-sheet-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter name"
-                  className="min-w-0 w-full bg-white"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !submitting) {
-                      e.preventDefault();
-                      void runSubmit();
-                    }
-                  }}
-                />
-              </div>
-              <EmojiPickerSection value={emojiIndex} onChange={setEmojiIndex} />
-            </div>
-          </div>
-        </div>
-
-        <FormSubpageBottomBar>
+      onOpenChange={onOpenChange}
+      title={title}
+      description={
+        variant === "add"
+          ? "Add a participant and choose their avatar."
+          : "Change this participant's name or avatar."
+      }
+      submitting={submitting}
+      actions={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -220,8 +170,29 @@ export function ParticipantFormSheet({
             ) : null}
             {primaryLabel}
           </Button>
-        </FormSubpageBottomBar>
-      </SheetContent>
-    </Sheet>
+        </>
+      }
+    >
+      <div className="space-y-10">
+        <div className="space-y-2">
+          <Label htmlFor="participant-form-sheet-name">Name</Label>
+          <Input
+            ref={nameInputRef}
+            id="participant-form-sheet-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter name"
+            className="min-w-0 w-full bg-card"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !submitting) {
+                e.preventDefault();
+                void runSubmit();
+              }
+            }}
+          />
+        </div>
+        <EmojiPickerSection value={emojiIndex} onChange={setEmojiIndex} />
+      </div>
+    </FormBottomSheet>
   );
 }

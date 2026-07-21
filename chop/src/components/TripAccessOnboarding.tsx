@@ -1,9 +1,13 @@
 import { IconCopy } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { TRIP_ACCESS_GUIDANCE } from "@/lib/trip-access-guidance";
 import { Check, Share2 } from "lucide-react";
 import { toast } from "@/lib/app-toast";
 import { copyText, shareTrip } from "@/lib/share-trip";
+import { FeedbackIcon } from "@/components/FeedbackIcon";
+import { useTransientFeedback } from "@/hooks/use-transient-feedback";
+import { IllustratedState } from "@/components/IllustratedState";
 
 interface TripAccessOnboardingProps {
   eventId: string;
@@ -16,6 +20,9 @@ export function TripAccessOnboarding({
   tripName,
   onContinue,
 }: TripAccessOnboardingProps) {
+  const shareFeedback = useTransientFeedback();
+  const linkCopyFeedback = useTransientFeedback();
+  const numberCopyFeedback = useTransientFeedback();
   const tripUrl = new URL(
     `bill/${eventId}`,
     `${window.location.origin}${import.meta.env.BASE_URL}`,
@@ -25,9 +32,11 @@ export function TripAccessOnboarding({
     value: string,
     successMessage: string,
     toastId: string,
+    onSuccess: () => void,
   ) => {
     try {
       await copyText(value);
+      onSuccess();
       toast.success(successMessage, { id: toastId });
     } catch {
       toast.error("Couldn’t copy. Please copy it manually.", { id: toastId });
@@ -37,6 +46,7 @@ export function TripAccessOnboarding({
   const handleShareTrip = async () => {
     try {
       const result = await shareTrip({ tripName, tripUrl });
+      if (result !== "cancelled") shareFeedback.trigger();
       if (result === "copied") {
         toast.success("Sharing isn’t available, so the trip link was copied", {
           id: "onboarding-share-trip",
@@ -49,19 +59,22 @@ export function TripAccessOnboarding({
 
   return (
     <div className="w-full space-y-6">
-      <header className="space-y-3 text-center">
-        <img
-          src={`${import.meta.env.BASE_URL}trip-link-onboarding.webp`}
-          alt="A bookmark marking a private web link."
-          width={180}
-          height={180}
-          className="empty-state-illustration mx-auto block"
-          decoding="async"
-        />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Bookmark your trip link
-        </h1>
-      </header>
+      <IllustratedState
+        as="header"
+        className="gap-3"
+        illustration={
+          <img
+            src={`${import.meta.env.BASE_URL}trip-link-onboarding.webp`}
+            alt="A bookmark marking a private web link."
+            width={180}
+            height={180}
+            className="empty-state-illustration"
+            decoding="async"
+          />
+        }
+        title="Bookmark your trip link"
+        titleAs="h1"
+      />
 
       <ul
         className="mx-auto max-w-md space-y-2 text-center"
@@ -84,7 +97,7 @@ export function TripAccessOnboarding({
         className="space-y-3"
         aria-label="Trip access details"
       >
-        <div className="rounded-lg border border-border bg-card p-4">
+        <Card className="p-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">Trip link</p>
             <a
@@ -103,7 +116,9 @@ export function TripAccessOnboarding({
               className="h-11 w-full gap-2"
               onClick={() => void handleShareTrip()}
             >
-              <Share2 className="h-5 w-5" aria-hidden />
+              <FeedbackIcon active={shareFeedback.active}>
+                <Share2 className="h-5 w-5" />
+              </FeedbackIcon>
               Share
             </Button>
             <Button
@@ -115,16 +130,19 @@ export function TripAccessOnboarding({
                   tripUrl,
                   "Trip link copied",
                   "onboarding-copy-trip-link",
+                  linkCopyFeedback.trigger,
                 )
               }
             >
-              <IconCopy className="h-5 w-5" />
+              <FeedbackIcon active={linkCopyFeedback.active}>
+                <IconCopy className="h-5 w-5" />
+              </FeedbackIcon>
               Copy URL
             </Button>
           </div>
-        </div>
+        </Card>
 
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4">
+        <Card className="flex items-center justify-between gap-4 p-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">Trip number</p>
             <p className="mt-1 text-xl font-semibold tabular-nums tracking-wide text-foreground">
@@ -140,13 +158,16 @@ export function TripAccessOnboarding({
                 eventId,
                 "Trip number copied",
                 "onboarding-copy-trip-number",
+                numberCopyFeedback.trigger,
               )
             }
           >
-            <IconCopy className="h-5 w-5" />
+            <FeedbackIcon active={numberCopyFeedback.active}>
+              <IconCopy className="h-5 w-5" />
+            </FeedbackIcon>
             Copy number
           </Button>
-        </div>
+        </Card>
       </section>
 
       <div className="pt-4">

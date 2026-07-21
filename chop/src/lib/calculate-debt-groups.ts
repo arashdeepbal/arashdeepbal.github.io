@@ -2,14 +2,14 @@ import { amountsEqually, amountsFromWeights } from "@/lib/split-total-by-percent
 import { getCurrencyFractionDigits } from "@/lib/format-amount";
 import type { BillItem, Person } from "@/types";
 
-export interface SettlementRecord {
+interface SettlementRecord {
   from_person_id: string;
   to_person_id: string;
   currency: string;
   amount: number;
 }
 
-export interface DebtGroup {
+interface DebtGroup {
   fromPerson: string;
   toPerson: string;
   amounts: Array<{

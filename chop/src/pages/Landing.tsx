@@ -19,6 +19,7 @@ import {
   readRecentTrips,
   type RecentTrip,
 } from "@/lib/recent-trips";
+import { waitForMotion } from "@/lib/motion";
 
 const HERO = `${import.meta.env.BASE_URL}landing-hero.webp`;
 const HERO_ALT = "German Shepherd puppy holding a large banknote";
@@ -28,7 +29,18 @@ export default function Landing() {
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [recentTrips, setRecentTrips] = useState<RecentTrip[]>(readRecentTrips);
+  const [removingRecentTripId, setRemovingRecentTripId] = useState<string | null>(
+    null,
+  );
   const navigate = useNavigate();
+
+  const removeRecentTrip = async (tripId: string) => {
+    setRemovingRecentTripId(tripId);
+    await waitForMotion(200);
+    forgetRecentTrip(tripId);
+    setRecentTrips(readRecentTrips());
+    setRemovingRecentTripId(null);
+  };
 
   const handleCreateTrip = async () => {
     if (!tripName.trim()) {
@@ -94,7 +106,7 @@ export default function Landing() {
     }
   };
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-card">
       <main className="app-page">
         <header className="space-y-3 text-center">
           <div className="flex w-full justify-center">
@@ -123,7 +135,7 @@ export default function Landing() {
                   <CardTitle
                     as="h2"
                     id="recent-trips-heading"
-                    className="text-left text-xl font-bold tracking-tight text-foreground"
+                    className="text-left text-xl font-semibold tracking-tight text-foreground"
                   >
                     Recent trips on this device
                   </CardTitle>
@@ -135,14 +147,16 @@ export default function Landing() {
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <ul className="m-0 list-none space-y-2 p-0">
-                    {recentTrips.map((trip) => (
+                    {recentTrips.map((trip, index) => (
                       <li
                         key={trip.id}
-                        className="flex items-center gap-2 rounded-lg border border-border bg-muted/35 p-2 transition-colors hover:bg-muted/55"
+                        className="motion-list-enter motion-removable flex items-center gap-2 rounded-lg border border-border bg-muted/35 p-2 transition-colors hover:bg-muted/55"
+                        data-removing={removingRecentTripId === trip.id ? "true" : "false"}
+                        style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
                       >
                         <button
                           type="button"
-                          className="min-h-12 min-w-0 flex-1 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="motion-press min-h-12 min-w-0 flex-1 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           onClick={() => navigate(`/bill/${trip.id}`)}
                         >
                           <span className="block truncate font-semibold text-foreground">
@@ -157,10 +171,7 @@ export default function Landing() {
                           variant="ghost"
                           size="sm"
                           className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => {
-                            forgetRecentTrip(trip.id);
-                            setRecentTrips(readRecentTrips());
-                          }}
+                          onClick={() => void removeRecentTrip(trip.id)}
                           aria-label={`Remove ${trip.name} from recent trips`}
                         >
                           Remove
@@ -179,7 +190,7 @@ export default function Landing() {
                 <CardTitle
                   as="h2"
                   id="landing-create-heading"
-                  className="text-left text-xl font-bold tracking-tight text-foreground"
+                  className="text-left text-xl font-semibold tracking-tight text-foreground"
                 >
                   Create a new trip
                 </CardTitle>
@@ -229,7 +240,7 @@ export default function Landing() {
                 <CardTitle
                   as="h2"
                   id="landing-join-heading"
-                  className="text-left text-xl font-bold tracking-tight text-foreground"
+                  className="text-left text-xl font-semibold tracking-tight text-foreground"
                 >
                   Join an existing trip
                 </CardTitle>

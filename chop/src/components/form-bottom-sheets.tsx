@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronsUpDown, Search } from "lucide-react";
+import { SelectionBottomSheet } from "@/components/bottom-sheet-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
   BILL_CURRENCIES,
@@ -17,7 +12,7 @@ import {
   type BillCurrency,
 } from "@/lib/currencies";
 import type { Person } from "@/types";
-import PersonAvatar from "@/components/PersonAvatar";
+import { ParticipantIdentity } from "@/components/ParticipantIdentity";
 
 interface CurrencyBottomSheetProps {
   id?: string;
@@ -41,7 +36,7 @@ function CurrencyRow({
     <button
       type="button"
       className={cn(
-        "flex w-full items-center gap-4 border-b border-border py-4 pl-4 pr-4 text-left transition-colors",
+        "motion-press flex w-full items-center gap-4 border-b border-border py-4 pl-4 pr-4 text-left transition-colors",
         "hover:bg-muted/50",
         selected && "bg-primary/5"
       )}
@@ -147,35 +142,32 @@ export function CurrencyBottomSheet({
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
       </Button>
 
-      <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent
-          side="bottom"
-          className="flex max-h-[min(94dvh,800px)] flex-col gap-0 rounded-t-2xl border-border p-0"
-        >
-          <div className="w-full shrink-0 border-b border-border">
-            <SheetHeader className="space-y-3 px-4 py-4 text-left">
-              <SheetTitle className="text-left">Select currency</SheetTitle>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  ref={searchInputRef}
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by name or code"
-                  className="h-10 pl-9"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  enterKeyHint="search"
-                />
-              </div>
-            </SheetHeader>
+      <SelectionBottomSheet
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="Select currency"
+        description="Search for and choose a currency for this bill."
+        headerContent={
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              ref={searchInputRef}
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or code"
+              className="h-10 pl-9"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="search"
+            />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        }
+      >
             {noResults && (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">No matching currencies</p>
             )}
@@ -267,9 +259,7 @@ export function CurrencyBottomSheet({
                 )}
               </div>
             )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      </SelectionBottomSheet>
     </div>
   );
 }
@@ -311,10 +301,11 @@ export function PersonBottomSheet({
         <span className="flex min-w-0 flex-1 items-center gap-3">
           {selected ? (
             <>
-              <PersonAvatar name={selected.name} seed={selected.avatarSeed} size="sm" />
-              <span className="truncate text-base font-medium text-foreground">
-                {selected.name}
-              </span>
+              <ParticipantIdentity
+                person={selected}
+                size="sm"
+                nameClassName="text-base"
+              />
             </>
           ) : (
             <span className="text-muted-foreground">{placeholder}</span>
@@ -323,17 +314,13 @@ export function PersonBottomSheet({
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
       </Button>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="bottom"
-          className="flex max-h-[min(94dvh,760px)] flex-col gap-0 rounded-t-2xl border-border p-0"
-        >
-          <div className="w-full shrink-0 border-b border-border">
-            <SheetHeader className="px-4 py-4 text-left">
-              <SheetTitle className="text-left">{title}</SheetTitle>
-            </SheetHeader>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <SelectionBottomSheet
+        open={open}
+        onOpenChange={setOpen}
+        title={title}
+        description="Choose the participant who paid for this bill."
+        maxHeightClassName="max-h-[min(94dvh,760px)]"
+      >
             {people.map((person) => {
               const isSelected = value === person.id;
               return (
@@ -341,7 +328,7 @@ export function PersonBottomSheet({
                   key={person.id}
                   type="button"
                   className={cn(
-                    "flex w-full items-center gap-4 border-b border-border py-4 pl-4 pr-4 text-left transition-colors last:border-0",
+                    "motion-press flex w-full items-center gap-4 border-b border-border py-4 pl-4 pr-4 text-left transition-colors last:border-0",
                     "hover:bg-muted/50",
                     isSelected && "bg-primary/5"
                   )}
@@ -350,16 +337,16 @@ export function PersonBottomSheet({
                     setOpen(false);
                   }}
                 >
-                  <PersonAvatar name={person.name} seed={person.avatarSeed} />
-                  <span className="min-w-0 flex-1 text-base font-medium text-foreground">
-                    {person.name}
-                  </span>
+                  <ParticipantIdentity
+                    person={person}
+                    size="md"
+                    className="flex-1 gap-4"
+                    nameClassName="text-base"
+                  />
                 </button>
               );
             })}
-          </div>
-        </SheetContent>
-      </Sheet>
+      </SelectionBottomSheet>
     </div>
   );
 }

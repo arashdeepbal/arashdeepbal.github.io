@@ -14,6 +14,7 @@ This file summarizes notable project changes from the Git history. The repositor
 
 ### Changed
 
+- Added a scroll-responsive trip header that keeps the full trip context at the top and condenses into a glass material header while scrolling.
 - Reworked first-run participant onboarding around confirmable participant rows and a simplified finish action.
 - Moved Bill, Participants, and empty Summary/History primary actions into consistent floating pills above the bottom navigation.
 - Grouped all currencies owed between the same two participants into one summary card with independent settlement actions.
@@ -21,6 +22,12 @@ This file summarizes notable project changes from the Git history. The repositor
 - Centralized trip workspace loading and mutations in `useTripWorkspace` and centralized short-lived, deduplicated toast behavior.
 - Improved mobile sheet spacing, safe-area handling, tab-header spacing, semantic headings, focus behavior, and empty states.
 - Updated deployment and local-development documentation for the portfolio repository's `/chop/` subpath.
+
+### Removed
+
+- Removed the obsolete component-tagging integration, its planning artifact, and related documentation.
+- Removed unreachable starter UI components, their unused dependencies, legacy toast/mobile hooks, unused CSS and assets, and redundant component exports.
+- Removed the Bun lockfile and standardized the project and deployment workflow on npm.
 
 ### Fixed
 
@@ -41,7 +48,7 @@ This file summarizes notable project changes from the Git history. The repositor
 
 ### Documentation
 
-- Replaced the generic Lovable starter README with product, architecture, setup, data-model, and security documentation.
+- Replaced the generic starter README with product, architecture, setup, data-model, and security documentation.
 - Added this changelog to establish a lightweight record for future changes.
 
 ## 2026-04-28

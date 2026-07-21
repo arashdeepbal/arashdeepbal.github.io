@@ -9,12 +9,11 @@ import { BillItem, Person } from "@/types";
 import { toast } from "@/lib/app-toast";
 import { IndividualSettlement } from "@/services/database";
 import { formatCurrencyAmount } from "@/lib/format-amount";
-import {
-  REMOVED_PARTICIPANT_AVATAR_SEED,
-  REMOVED_PARTICIPANT_LABEL,
-} from "@/lib/participant-avatar";
+import { REMOVED_PARTICIPANT_LABEL } from "@/lib/participant-avatar";
 import { calculateDebtGroups } from "@/lib/calculate-debt-groups";
-import PersonAvatar from "./PersonAvatar";
+import { ParticipantIdentity } from "@/components/ParticipantIdentity";
+import { SectionHeading } from "@/components/section-heading";
+import { IllustratedState } from "@/components/IllustratedState";
 
 interface BillSummaryProps {
   billItems: BillItem[];
@@ -110,29 +109,27 @@ export default function BillSummary({
   };
   if (billItems.length === 0 && settlements.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <img
-          src={`${import.meta.env.BASE_URL}summary-empty.png`}
-          alt=""
-          width={240}
-          height={134}
-          className="mb-4 h-auto w-[240px] max-w-full object-contain"
-          decoding="async"
-          loading="lazy"
-        />
-        <p className="text-muted-foreground">
-          Your summary will appear after you add your first bill.
-        </p>
-      </div>
+      <IllustratedState
+        className="gap-4 py-8"
+        illustration={
+          <img
+            src={`${import.meta.env.BASE_URL}summary-empty.png`}
+            alt=""
+            width={240}
+            height={134}
+            className="h-auto w-[240px] max-w-full object-contain"
+            decoding="async"
+            loading="lazy"
+          />
+        }
+        description="Your summary will appear after you add your first bill."
+      />
     );
   }
 
   const showAllSettledState =
     debtsByPersonPair.length === 0 &&
     (billItems.length > 0 || settlements.length > 0);
-
-  const summarySectionTitleClass =
-    "text-lg font-semibold tracking-tight text-foreground sm:text-xl";
 
   return (
     <div className="space-y-6">
@@ -144,52 +141,37 @@ export default function BillSummary({
             : {})}
         >
           {settlements.length > 0 ? (
-            <h2 id="summary-pending-heading" className={summarySectionTitleClass}>
+            <SectionHeading id="summary-pending-heading">
               Pending
-            </h2>
+            </SectionHeading>
           ) : null}
           <div className="flex flex-col gap-3">
-            {debtsByPersonPair.map((split) => {
+            {debtsByPersonPair.map((split, splitIndex) => {
               const fromPerson = getPersonById(split.fromPerson);
               const toPerson = getPersonById(split.toPerson);
               return (
                 <Card
                   key={`${split.fromPerson}-${split.toPerson}`}
-                  className="p-4"
+                  className="motion-list-enter p-4"
+                  style={{ animationDelay: `${Math.min(splitIndex, 5) * 40}ms` }}
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <PersonAvatar
-                          name={fromPerson?.name || REMOVED_PARTICIPANT_LABEL}
-                          seed={
-                            fromPerson?.avatarSeed ||
-                            REMOVED_PARTICIPANT_AVATAR_SEED
-                          }
-                          size="sm"
-                        />
-                        <span className="truncate text-sm font-medium text-foreground">
-                          {fromPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
-                        </span>
-                      </div>
+                      <ParticipantIdentity
+                        person={fromPerson}
+                        size="sm"
+                        nameClassName="text-sm"
+                      />
                       <ArrowRight
                         className="shrink-0 text-primary"
                         size={18}
                         aria-hidden
                       />
-                      <div className="flex min-w-0 items-center gap-2">
-                        <PersonAvatar
-                          name={toPerson?.name || REMOVED_PARTICIPANT_LABEL}
-                          seed={
-                            toPerson?.avatarSeed ||
-                            REMOVED_PARTICIPANT_AVATAR_SEED
-                          }
-                          size="sm"
-                        />
-                        <span className="text-sm font-medium text-foreground">
-                          {toPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
-                        </span>
-                      </div>
+                      <ParticipantIdentity
+                        person={toPerson}
+                        size="sm"
+                        nameClassName="text-sm"
+                      />
                     </div>
 
                     <div>
@@ -205,7 +187,10 @@ export default function BillSummary({
                                 : ""
                             }`}
                           >
-                            <div className="text-lg font-bold text-foreground">
+                            <div
+                              key={`${settleKey}-${amount.amount}`}
+                              className="motion-amount-change text-lg font-bold text-foreground"
+                            >
                               {amount.currency} {formatCurrencyAmount(amount.amount, amount.currency)}
                             </div>
                             <Button
@@ -235,69 +220,67 @@ export default function BillSummary({
           </div>
         </section>
       ) : showAllSettledState ? (
-        <div className="flex flex-col items-center py-6 text-center">
-          <img
-            src={`${import.meta.env.BASE_URL}summary-all-settled-trip.webp`}
-            alt=""
-            width={180}
-            height={180}
-            className="empty-state-illustration mb-4 max-w-full object-contain"
-            decoding="async"
-            loading="lazy"
-          />
-          <p className="text-lg font-semibold tracking-tight text-foreground">
-            All settled for this trip!
-          </p>
-        </div>
+        <IllustratedState
+          className="settled-celebration gap-4 py-6"
+          illustration={
+            <div className="relative">
+              <span className="settled-paw settled-paw-one" aria-hidden>🐾</span>
+              <span className="settled-paw settled-paw-two" aria-hidden>🐾</span>
+              <span className="settled-paw settled-paw-three" aria-hidden>🐾</span>
+              <img
+                src={`${import.meta.env.BASE_URL}summary-all-settled-trip.webp`}
+                alt=""
+                width={180}
+                height={180}
+                className="settled-dog-pop empty-state-illustration max-w-full object-contain"
+                decoding="async"
+                loading="lazy"
+              />
+            </div>
+          }
+          title="All settled for this trip!"
+          titleAs="p"
+          titleClassName="text-lg"
+        />
       ) : null}
 
       {settlements.length > 0 ? (
         <section className="space-y-3" aria-labelledby="summary-settled-heading">
-          <h2 id="summary-settled-heading" className={summarySectionTitleClass}>
+          <SectionHeading id="summary-settled-heading">
             Settled
-          </h2>
+          </SectionHeading>
           <div className="flex flex-col gap-3">
-            {settlementsNewestFirst.map((s) => {
+            {settlementsNewestFirst.map((s, settlementIndex) => {
               const fromPerson = getPersonById(s.from_person_id);
               const toPerson = getPersonById(s.to_person_id);
               return (
                 <Card
                   key={s.id}
-                  className="p-4 shadow-sm"
+                  className="motion-list-enter p-4 shadow-sm"
+                  style={{ animationDelay: `${Math.min(settlementIndex, 5) * 40}ms` }}
                 >
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
                       <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-foreground">
-                        <div className="flex min-w-0 items-center gap-2">
-                          {fromPerson ? (
-                            <PersonAvatar
-                              name={fromPerson.name}
-                              seed={fromPerson.avatarSeed}
-                              size="sm"
-                            />
-                          ) : null}
-                          <span className="truncate">
-                            {fromPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
-                          </span>
-                        </div>
+                        <ParticipantIdentity
+                          person={fromPerson}
+                          size="sm"
+                          nameClassName="text-sm"
+                        />
                         <ArrowRight
                           className="h-4 w-4 shrink-0 text-muted-foreground"
                           aria-hidden
                         />
-                        <div className="flex min-w-0 items-center gap-2">
-                          {toPerson ? (
-                            <PersonAvatar
-                              name={toPerson.name}
-                              seed={toPerson.avatarSeed}
-                              size="sm"
-                            />
-                          ) : null}
-                          <span className="truncate">
-                            {toPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
-                          </span>
-                        </div>
+                        <ParticipantIdentity
+                          person={toPerson}
+                          size="sm"
+                          nameClassName="text-sm"
+                        />
                       </div>
-                      <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
+                      <span
+                        key={`${s.id}-${s.amount}`}
+                        className="motion-amount-change shrink-0 text-base font-semibold tabular-nums text-foreground"
+                      >
                         {s.currency} {formatCurrencyAmount(s.amount, s.currency)}
                       </span>
                     </div>

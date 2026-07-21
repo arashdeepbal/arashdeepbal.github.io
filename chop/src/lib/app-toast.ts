@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { toast as sonnerToast, type ExternalToast } from "sonner";
 
 export const SUCCESS_TOAST_DURATION = 2400;
-export const ERROR_TOAST_DURATION = 4000;
+const ERROR_TOAST_DURATION = 4000;
 
 const withDefaultDuration = (
   type: "success" | "error" | "info" | "warning",

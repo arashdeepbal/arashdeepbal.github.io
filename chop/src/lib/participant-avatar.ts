@@ -4,7 +4,7 @@
  *
  * The seed is the source of truth (set once when the person is added to a trip) — never derive from name or a different id.
  *
- * - **V2** (`"{emojiIndex}|{styleKey}"`): chosen emoji + separate key for background tint (styleKey is usually a UUID).
+ * - **V2** (`"{emojiIndex}|{uniqueKey}"`): chosen emoji + a stable unique suffix.
  * - **V1** (any other string, e.g. a bare UUID): emoji and style both derived from the full string hash (backwards compatible).
  */
 
@@ -35,8 +35,6 @@ export const PARTICIPANT_ANIMAL_EMOJIS = [
 export const REMOVED_PARTICIPANT_LABEL = "Removed participant";
 export const REMOVED_PARTICIPANT_AVATAR_SEED = "removed-participant";
 
-const STYLE_COUNT = 8;
-
 /**
  * 32-bit FNV-1a: stable, better spread than char-sum for UUID seeds.
  */
@@ -53,7 +51,7 @@ function stableIndex(seed: string, mod: number): number {
 
 const V2_SEED = /^(\d+)\|(.+)$/;
 
-function parseV2AvatarSeed(avatarSeed: string): { emojiIndex: number; styleKey: string } | null {
+function parseV2AvatarSeed(avatarSeed: string): { emojiIndex: number } | null {
   const m = V2_SEED.exec(avatarSeed);
   if (!m) {
     return null;
@@ -66,10 +64,10 @@ function parseV2AvatarSeed(avatarSeed: string): { emojiIndex: number; styleKey: 
   const n = PARTICIPANT_ANIMAL_EMOJIS.length;
   const emojiIndex =
     parsed < n ? Math.floor(parsed) : stableIndex(styleKey, n);
-  return { emojiIndex, styleKey };
+  return { emojiIndex };
 }
 
-/** New participant: chosen emoji index + unique style key (e.g. UUID) so two people can share an emoji with different tints. */
+/** New participant: chosen emoji index + a UUID suffix for stable uniqueness. */
 export function createAvatarSeedForChosenEmoji(emojiIndex: number): string {
   const n = PARTICIPANT_ANIMAL_EMOJIS.length;
   const i =
@@ -102,16 +100,4 @@ export function getParticipantAnimalEmoji(avatarSeed: string): (typeof PARTICIPA
   }
   const i = stableIndex(avatarSeed, PARTICIPANT_ANIMAL_EMOJIS.length);
   return PARTICIPANT_ANIMAL_EMOJIS[i]!;
-}
-
-/** Index 0..STYLE_COUNT-1 for background / ring styling (separate from emoji for visual variety). */
-export function getParticipantStyleIndex(avatarSeed: string): number {
-  if (!avatarSeed?.trim()) {
-    return 0;
-  }
-  const v2 = parseV2AvatarSeed(avatarSeed);
-  if (v2) {
-    return stableIndex(v2.styleKey, STYLE_COUNT);
-  }
-  return stableIndex(avatarSeed, STYLE_COUNT);
 }

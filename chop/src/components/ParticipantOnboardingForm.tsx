@@ -4,9 +4,11 @@ import { IconBin, IconPlus } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { createParticipantDraft } from "@/lib/participant-draft";
 import type { Person } from "@/types";
 import { toast } from "@/lib/app-toast";
+import { waitForMotion } from "@/lib/motion";
 
 interface ParticipantOnboardingFormProps {
   people: Person[];
@@ -33,6 +35,9 @@ export function ParticipantOnboardingForm({
   const [confirmedParticipantIds, setConfirmedParticipantIds] = useState<
     Set<string>
   >(() => new Set());
+  const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(
+    null,
+  );
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const previousPeopleCount = useRef(people.length);
 
@@ -101,7 +106,9 @@ export function ParticipantOnboardingForm({
     onPeopleChange([...people, createParticipantDraft()]);
   };
 
-  const handleRemoveParticipant = (id: string) => {
+  const handleRemoveParticipant = async (id: string) => {
+    setRemovingParticipantId(id);
+    await waitForMotion(200);
     setConfirmedParticipantIds((current) => {
       const next = new Set(current);
       next.delete(id);
@@ -112,6 +119,7 @@ export function ParticipantOnboardingForm({
     onPeopleChange(
       remainingPeople.length > 0 ? remainingPeople : [createParticipantDraft()],
     );
+    setRemovingParticipantId(null);
   };
 
   const handleCreateTrip = () => {
@@ -131,11 +139,16 @@ export function ParticipantOnboardingForm({
           people.length > 1 && (isConfirmed || !person.name.trim());
 
         return (
-          <section
+          <Card
             key={person.id}
-            className="space-y-4 rounded-lg border border-border bg-card p-4"
-            aria-labelledby={`onboarding-participant-${person.id}-title`}
+            asChild
+            className="motion-list-enter motion-removable space-y-4 p-4"
           >
+            <section
+              data-removing={removingParticipantId === person.id ? "true" : "false"}
+              style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
+              aria-labelledby={`onboarding-participant-${person.id}-title`}
+            >
             <h2
               id={`onboarding-participant-${person.id}-title`}
               className="min-w-0 truncate text-base font-semibold text-foreground"
@@ -156,7 +169,7 @@ export function ParticipantOnboardingForm({
                   value={person.name}
                   onChange={(event) => updateName(person.id, event.target.value)}
                   placeholder="Name"
-                  className="min-w-0 w-full bg-white"
+                  className="min-w-0 w-full bg-card"
                   autoComplete="off"
                   disabled={saving}
                   onKeyDown={(event) => {
@@ -173,7 +186,7 @@ export function ParticipantOnboardingForm({
                   type="button"
                   variant="deleteOutline"
                   className="h-12 shrink-0 px-4"
-                  onClick={() => handleRemoveParticipant(person.id)}
+                  onClick={() => void handleRemoveParticipant(person.id)}
                   aria-label={`Remove participant ${index + 1}`}
                   disabled={saving}
                 >
@@ -193,7 +206,8 @@ export function ParticipantOnboardingForm({
                 </Button>
               )}
             </div>
-          </section>
+            </section>
+          </Card>
         );
       })}
 

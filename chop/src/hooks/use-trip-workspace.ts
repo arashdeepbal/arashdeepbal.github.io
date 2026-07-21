@@ -19,8 +19,8 @@ import {
   updateParticipant,
 } from "@/services/database";
 
-export type TripLoadStatus = "loading" | "ready" | "error";
-export type TripLoadError = "not-found" | "unavailable" | null;
+type TripLoadStatus = "loading" | "ready" | "error";
+type TripLoadError = "not-found" | "unavailable" | null;
 
 export function useTripWorkspace(eventId: string | undefined) {
   const [people, setPeople] = useState<Person[]>([]);

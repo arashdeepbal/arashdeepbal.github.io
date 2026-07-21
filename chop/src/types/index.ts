@@ -23,21 +23,3 @@ export type BillItem = {
   date: string; // ISO string format
   personSplits?: PersonSplit[];
 };
-
-export type Split = {
-  fromPerson: string;
-  toPerson: string;
-  amount: number;
-};
-
-export type Currency = {
-  code: string;
-  symbol: string;
-  name: string;
-};
-
-export type Trip = {
-  id: string;
-  name: string;
-  date: string; // ISO string format
-};
