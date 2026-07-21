@@ -368,8 +368,8 @@ export default function Index() {
             <div
               className={
                 navSection === "participants"
-                  ? "pb-[calc(3.5rem+7.5rem)]"
-                  : "pb-[3.5rem]"
+                  ? "pb-[calc(3.5rem+7.5rem+var(--bottom-nav-safe-area))]"
+                  : "pb-[calc(3.5rem+var(--bottom-nav-safe-area))]"
               }
             >
               {eventId && navSection === "bill" && (
@@ -435,7 +435,7 @@ export default function Index() {
 
             {eventId && navSection === "participants" && (
               <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[60]">
-                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+2rem)]">
+                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+2rem+var(--bottom-nav-safe-area))]">
                   <Button
                     type="button"
                     className="pointer-events-auto h-12 min-h-12 min-w-0 gap-2 rounded-full px-5 text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"

@@ -2,6 +2,15 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
+const navigatorWithStandalone = navigator as Navigator & {
+  standalone?: boolean;
+};
+const isStandalone =
+  window.matchMedia("(display-mode: standalone)").matches ||
+  navigatorWithStandalone.standalone === true;
+
+document.documentElement.dataset.standalone = String(isStandalone);
+
 const routeParam = new URLSearchParams(window.location.search).get("route");
 
 if (

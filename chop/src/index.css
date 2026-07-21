@@ -38,6 +38,8 @@
 
     /* iPhone home indicator / swipe-up zone; min 1rem when env() is 0 (needs viewport-fit=cover). */
     --safe-area-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    /* Bottom navigation stays compact in browsers; standalone mode opts into the real device inset. */
+    --bottom-nav-safe-area: 0px;
   }
 
   .dark {
@@ -69,6 +71,17 @@
     --input: 0 0% 15%;
     --ring: 210 100% 50%;
   }
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Older iOS Home Screen web apps expose navigator.standalone instead. */
+:root[data-standalone="true"] {
+  --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
 }
 
 @layer base {
@@ -119,4 +132,3 @@
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
-

@@ -29,7 +29,7 @@ interface TripBottomNavProps {
 export default function TripBottomNav({ active, onChange }: TripBottomNavProps) {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white shadow-[0_-2px_12px_-4px_rgba(0,0,0,0.08)]"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white pb-[var(--bottom-nav-safe-area)] shadow-[0_-2px_12px_-4px_rgba(0,0,0,0.08)]"
       aria-label="Primary"
     >
       <div className="mx-auto flex max-w-app">
