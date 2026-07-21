@@ -82,6 +82,8 @@ function ParticipantRoster({
   showListHeading?: boolean;
 }) {
   const [deleteTarget, setDeleteTarget] = useState<Person | null>(null);
+  const isDeletingLastParticipant =
+    people.length === 1 && deleteTarget?.id === people[0]?.id;
 
   return (
     <div className="space-y-2">
@@ -141,18 +143,34 @@ function ParticipantRoster({
           if (!open) setDeleteTarget(null);
         }}
         visual="delete"
-        title="Are you sure you want to delete this participant?"
-        description={
-          <>
-            <span className="font-medium text-foreground">
-              {deleteTarget?.name ?? "This participant"}
-            </span>{" "}
-            will be removed from this trip. Line items and splits that include
-            them may be changed or removed, and group balances and totals can
-            change. This can&apos;t be undone.
-          </>
+        title={
+          isDeletingLastParticipant
+            ? "Delete the last participant and trip?"
+            : "Are you sure you want to delete this participant?"
         }
-        confirmLabel="Delete"
+        description={
+          isDeletingLastParticipant ? (
+            <>
+              <span className="font-medium text-foreground">
+                {deleteTarget?.name ?? "This participant"}
+              </span>{" "}
+              is the last participant. Deleting them will also permanently
+              delete this trip and all related expenses, splits, settlements,
+              and history. You&apos;ll need to create a new trip to continue. Are
+              you sure you want to proceed?
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-foreground">
+                {deleteTarget?.name ?? "This participant"}
+              </span>{" "}
+              will be removed from this trip. Line items and splits that include
+              them may be changed or removed, and group balances and totals can
+              change. This can&apos;t be undone.
+            </>
+          )
+        }
+        confirmLabel={isDeletingLastParticipant ? "Delete trip" : "Delete"}
         onConfirm={async () => {
           if (deleteTarget) {
             await Promise.resolve(onRemovePerson(deleteTarget.id));

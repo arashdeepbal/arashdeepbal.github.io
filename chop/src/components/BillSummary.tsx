@@ -3,11 +3,15 @@ import { format } from "date-fns";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { IconCircleCheck } from "@/components/icons/circle-check-icon";
 import { IconSettleCheck } from "@/components/icons/settle-check-icon";
 import { BillItem, Person } from "@/types";
 import { toast } from "sonner";
 import { IndividualSettlement } from "@/services/database";
+import { formatAmount } from "@/lib/format-amount";
+import {
+  REMOVED_PARTICIPANT_AVATAR_SEED,
+  REMOVED_PARTICIPANT_LABEL,
+} from "@/lib/participant-avatar";
 import PersonAvatar from "./PersonAvatar";
 
 interface BillSummaryProps {
@@ -35,7 +39,7 @@ export default function BillSummary({
   onDebtSplitsChange,
 }: BillSummaryProps) {
   const [settlingItems, setSettlingItems] = useState<Set<string>>(new Set());
-  const splitsByCurrency = useMemo(() => {
+  const debtsByPersonPair = useMemo(() => {
     // Calculate what each person paid and owes by currency
     const personBalancesByCurrency: Record<string, Record<string, {
       paid: number;
@@ -95,7 +99,7 @@ export default function BillSummary({
     });
 
     // Calculate net balances and create transfers for each currency
-    const splitsByCurrency: CurrencySplit[] = [];
+    const debtsByPersonPair = new Map<string, CurrencySplit>();
     currencies.forEach(currency => {
       const netBalances: Record<string, number> = {};
       people.forEach(person => {
@@ -114,27 +118,40 @@ export default function BillSummary({
           if (remaining > 0.01 && netBalances[creditor.id] > 0.01) {
             const transferAmount = Math.min(remaining, netBalances[creditor.id]);
 
-            // Find existing split or create new one
-            let existingSplit = splitsByCurrency.find(split => split.fromPerson === debtor.id && split.toPerson === creditor.id);
+            // Group every currency owed between the same two people into one card.
+            const personPairKey = `${debtor.id}-${creditor.id}`;
+            let existingSplit = debtsByPersonPair.get(personPairKey);
             if (!existingSplit) {
               existingSplit = {
                 fromPerson: debtor.id,
                 toPerson: creditor.id,
                 amounts: []
               };
-              splitsByCurrency.push(existingSplit);
+              debtsByPersonPair.set(personPairKey, existingSplit);
             }
-            existingSplit.amounts.push({
-              currency,
-              amount: parseFloat(transferAmount.toFixed(2))
-            });
+            const roundedAmount = parseFloat(transferAmount.toFixed(2));
+            const existingCurrencyAmount = existingSplit.amounts.find(
+              (amount) => amount.currency === currency,
+            );
+            if (existingCurrencyAmount) {
+              existingCurrencyAmount.amount = parseFloat(
+                (existingCurrencyAmount.amount + roundedAmount).toFixed(2),
+              );
+            } else {
+              existingSplit.amounts.push({
+                currency,
+                amount: roundedAmount,
+              });
+            }
             netBalances[creditor.id] -= transferAmount;
             remaining -= transferAmount;
           }
         });
       });
     });
-    return splitsByCurrency.filter(split => split.amounts.length > 0);
+    return [...debtsByPersonPair.values()].filter(
+      (split) => split.amounts.length > 0,
+    );
   }, [billItems, people, settlements]);
 
   const settlementsNewestFirst = useMemo(
@@ -147,9 +164,9 @@ export default function BillSummary({
   );
 
   useEffect(() => {
-    const hasDebts = billItems.length > 0 && splitsByCurrency.length > 0;
+    const hasDebts = billItems.length > 0 && debtsByPersonPair.length > 0;
     onDebtSplitsChange?.(hasDebts);
-  }, [billItems.length, splitsByCurrency.length, onDebtSplitsChange]);
+  }, [billItems.length, debtsByPersonPair.length, onDebtSplitsChange]);
 
   const getPersonById = (id: string) => {
     return people.find(p => p.id === id);
@@ -191,17 +208,16 @@ export default function BillSummary({
     );
   }
 
-  const showAllSettledHero =
-    billItems.length > 0 &&
-    splitsByCurrency.length === 0 &&
-    settlements.length === 0;
+  const showAllSettledState =
+    debtsByPersonPair.length === 0 &&
+    (billItems.length > 0 || settlements.length > 0);
 
   const summarySectionTitleClass =
     "text-lg font-semibold tracking-tight text-foreground sm:text-xl";
 
   return (
     <div className="space-y-6">
-      {splitsByCurrency.length > 0 ? (
+      {debtsByPersonPair.length > 0 ? (
         <section
           className="space-y-3"
           {...(settlements.length > 0
@@ -214,7 +230,7 @@ export default function BillSummary({
             </h3>
           ) : null}
           <div className="flex flex-col gap-3">
-            {splitsByCurrency.map((split) => {
+            {debtsByPersonPair.map((split) => {
               const fromPerson = getPersonById(split.fromPerson);
               const toPerson = getPersonById(split.toPerson);
               return (
@@ -223,44 +239,55 @@ export default function BillSummary({
                   className="p-4"
                 >
                   <div className="flex flex-col gap-4">
-                    {split.amounts.map((amount, amountIndex) => {
-                      const settleKey = `${split.fromPerson}-${split.toPerson}-${amount.currency}`;
-                      const isSettling = settlingItems.has(settleKey);
-                      return (
-                        <div
-                          key={`${settleKey}-${amountIndex}`}
-                          className="flex flex-col items-start gap-3"
-                        >
-                          <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <PersonAvatar
-                                name={fromPerson?.name || ""}
-                                seed={fromPerson?.avatarSeed || ""}
-                                size="sm"
-                              />
-                              <span className="truncate text-sm font-medium text-foreground">
-                                {fromPerson?.name}
-                              </span>
-                            </div>
-                            <ArrowRight
-                              className="shrink-0 text-primary"
-                              size={18}
-                              aria-hidden
-                            />
-                            <div className="flex min-w-0 items-center gap-2">
-                              <PersonAvatar
-                                name={toPerson?.name || ""}
-                                seed={toPerson?.avatarSeed || ""}
-                                size="sm"
-                              />
-                              <span className="text-sm font-medium text-foreground">
-                                {toPerson?.name}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex w-full items-center justify-between gap-4">
+                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <PersonAvatar
+                          name={fromPerson?.name || REMOVED_PARTICIPANT_LABEL}
+                          seed={
+                            fromPerson?.avatarSeed ||
+                            REMOVED_PARTICIPANT_AVATAR_SEED
+                          }
+                          size="sm"
+                        />
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {fromPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
+                        </span>
+                      </div>
+                      <ArrowRight
+                        className="shrink-0 text-primary"
+                        size={18}
+                        aria-hidden
+                      />
+                      <div className="flex min-w-0 items-center gap-2">
+                        <PersonAvatar
+                          name={toPerson?.name || REMOVED_PARTICIPANT_LABEL}
+                          seed={
+                            toPerson?.avatarSeed ||
+                            REMOVED_PARTICIPANT_AVATAR_SEED
+                          }
+                          size="sm"
+                        />
+                        <span className="text-sm font-medium text-foreground">
+                          {toPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      {split.amounts.map((amount, amountIndex) => {
+                        const settleKey = `${split.fromPerson}-${split.toPerson}-${amount.currency}`;
+                        const isSettling = settlingItems.has(settleKey);
+                        return (
+                          <div
+                            key={settleKey}
+                            className={`flex w-full items-center justify-between gap-4 ${
+                              amountIndex > 0
+                                ? "mt-4 border-t border-border pt-4"
+                                : ""
+                            }`}
+                          >
                             <div className="text-lg font-bold text-foreground">
-                              {amount.currency} {amount.amount.toFixed(2)}
+                              {amount.currency} {formatAmount(amount.amount)}
                             </div>
                             <Button
                               onClick={() =>
@@ -279,24 +306,16 @@ export default function BillSummary({
                               {isSettling ? "Settling..." : "Settle"}
                             </Button>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </Card>
               );
             })}
           </div>
         </section>
-      ) : showAllSettledHero ? (
-        <div className="py-8 text-center">
-          <div className="space-y-2">
-            <IconCircleCheck className="mx-auto h-12 w-12 text-green-500" />
-            <h2 className="text-lg font-semibold text-green-800">All settled up</h2>
-            <p className="text-green-600">Everyone has paid their fair share.</p>
-          </div>
-        </div>
-      ) : settlements.length > 0 && splitsByCurrency.length === 0 ? (
+      ) : showAllSettledState ? (
         <div className="flex flex-col items-center py-6 text-center">
           <img
             src={`${import.meta.env.BASE_URL}summary-all-settled-trip.webp`}
@@ -339,7 +358,7 @@ export default function BillSummary({
                             />
                           ) : null}
                           <span className="truncate">
-                            {fromPerson?.name ?? "Someone"}
+                            {fromPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
                           </span>
                         </div>
                         <ArrowRight
@@ -355,12 +374,12 @@ export default function BillSummary({
                             />
                           ) : null}
                           <span className="truncate">
-                            {toPerson?.name ?? "Someone"}
+                            {toPerson?.name ?? REMOVED_PARTICIPANT_LABEL}
                           </span>
                         </div>
                       </div>
                       <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
-                        {s.currency} {s.amount.toFixed(2)}
+                        {s.currency} {formatAmount(s.amount)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">

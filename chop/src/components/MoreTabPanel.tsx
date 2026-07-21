@@ -1,7 +1,9 @@
 import { IconCopy, IconEdit, IconSignOut } from "@/components/icons/app-icons";
 import { Button } from "@/components/ui/button";
+import { TRIP_ACCESS_GUIDANCE } from "@/lib/trip-access-guidance";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 
 const moreMenuListItemClass = cn(
   "h-auto min-h-14 w-full justify-start gap-3 rounded-none border-0 shadow-none",
@@ -110,6 +112,31 @@ export default function MoreTabPanel({ eventId, tripName, onEditTrip }: MoreTabP
               <span>Exit trip</span>
             </Button>
           </li>
+        </ul>
+      </section>
+
+      <section className="space-y-2" aria-labelledby="more-good-to-know-heading">
+        <h3
+          id="more-good-to-know-heading"
+          className="text-lg font-semibold tracking-tight text-foreground sm:text-xl"
+        >
+          Good to know
+        </h3>
+        <ul className="m-0 flex w-full list-none flex-col divide-y divide-border p-0">
+          {["Bookmark your trip link.", ...TRIP_ACCESS_GUIDANCE].map(
+            (message) => (
+              <li
+                key={message}
+                className="flex items-start gap-3 py-2 text-base font-normal leading-relaxed text-foreground"
+              >
+                <Check
+                  className="mt-0.5 h-5 w-5 shrink-0 stroke-[2.5] text-primary"
+                  aria-hidden
+                />
+                <span>{message}</span>
+              </li>
+            ),
+          )}
         </ul>
       </section>
     </div>

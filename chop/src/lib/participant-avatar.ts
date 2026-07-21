@@ -32,6 +32,9 @@ export const PARTICIPANT_ANIMAL_EMOJIS = [
   "🦫",
 ] as const;
 
+export const REMOVED_PARTICIPANT_LABEL = "Removed participant";
+export const REMOVED_PARTICIPANT_AVATAR_SEED = "removed-participant";
+
 const STYLE_COUNT = 8;
 
 /**

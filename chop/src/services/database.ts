@@ -76,6 +76,15 @@ export async function updateEvent(eventId: string, name: string) {
   if (error) throw error;
 }
 
+export async function deleteEvent(eventId: string) {
+  const { error } = await supabase
+    .from("events")
+    .delete()
+    .eq("id", eventId);
+
+  if (error) throw error;
+}
+
 export async function getEvent(eventId: string) {
   const { data, error } = await supabase
     .from('events')

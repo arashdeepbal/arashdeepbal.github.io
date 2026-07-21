@@ -61,7 +61,6 @@ export default function TripBottomNav({ active, onChange }: TripBottomNavProps) 
           );
         })}
       </div>
-      <div className="h-[var(--safe-area-bottom)] shrink-0 bg-white" aria-hidden />
     </nav>
   );
 }

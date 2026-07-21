@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight } from "lucide-react";
 import { IconPlus } from "@/components/icons/app-icons";
 import { toast } from "sonner";
 import { Person, BillItem } from "@/types";
 import { ParticipantFormSheet } from "@/components/ParticipantFormSheet";
+import {
+  createParticipantDraft,
+  ParticipantOnboardingForm,
+} from "@/components/ParticipantOnboardingForm";
 import { TripEditSheet } from "@/components/TripEditSheet";
+import { TripAccessOnboarding } from "@/components/TripAccessOnboarding";
 import ParticipantsManager from "@/components/ParticipantsManager";
 import BillItemsManager from "@/components/BillItemsManager";
 import BillSummary from "@/components/BillSummary";
@@ -17,6 +21,7 @@ import TripBottomNav, { type TripNavSection } from "@/components/TripBottomNav";
 
 import {
   getEvent,
+  deleteEvent,
   getParticipants,
   addParticipant,
   updateParticipant,
@@ -39,10 +44,14 @@ const TRIP_PAGE_TITLES: Record<Exclude<TripNavSection, "participants">, string> 
 
 export default function Index() {
   const { eventId } = useParams();
+  const navigate = useNavigate();
   const [people, setPeople] = useState<Person[]>([]);
-  /** Local-only list before "Next" is pressed when the trip has no saved participants */
-  const [pendingPeople, setPendingPeople] = useState<Person[]>([]);
+  /** Local-only list before "Create trip" is pressed when the trip has no saved participants */
+  const [pendingPeople, setPendingPeople] = useState<Person[]>(() => [
+    createParticipantDraft(),
+  ]);
   const [savingPendingParticipants, setSavingPendingParticipants] = useState(false);
+  const [showTripAccessOnboarding, setShowTripAccessOnboarding] = useState(false);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [settlements, setSettlements] = useState<IndividualSettlement[]>([]);
   /** Default for new line items: stored `value` in `BILL_CURRENCIES` (e.g. `$` for USD). */
@@ -58,20 +67,12 @@ export default function Index() {
   const [participantsEditParticipantId, setParticipantsEditParticipantId] = useState<
     string | null
   >(null);
-  /** Edit during first-run onboarding (pending roster) */
-  const [onboardingEditParticipantId, setOnboardingEditParticipantId] = useState<
-    string | null
-  >(null);
   const [tripEditSheetOpen, setTripEditSheetOpen] = useState(false);
 
   const showParticipantOnboarding = !loading && people.length === 0;
 
   const tripPersonToEdit = participantsEditParticipantId
     ? people.find((p) => p.id === participantsEditParticipantId)
-    : undefined;
-
-  const onboardingPersonToEdit = onboardingEditParticipantId
-    ? pendingPeople.find((p) => p.id === onboardingEditParticipantId)
     : undefined;
 
   useEffect(() => {
@@ -87,6 +88,12 @@ export default function Index() {
   }, [people.length]);
 
   useEffect(() => {
+    if (showParticipantOnboarding && pendingPeople.length === 0) {
+      setPendingPeople([createParticipantDraft()]);
+    }
+  }, [showParticipantOnboarding, pendingPeople.length]);
+
+  useEffect(() => {
     if (navSection !== "participants") {
       setParticipantsAddView(false);
       setParticipantsEditParticipantId(null);
@@ -100,12 +107,6 @@ export default function Index() {
   }, [navSection]);
 
   useEffect(() => {
-    if (!showParticipantOnboarding) {
-      setOnboardingEditParticipantId(null);
-    }
-  }, [showParticipantOnboarding]);
-
-  useEffect(() => {
     if (
       participantsEditParticipantId &&
       !people.some((p) => p.id === participantsEditParticipantId)
@@ -113,15 +114,6 @@ export default function Index() {
       setParticipantsEditParticipantId(null);
     }
   }, [people, participantsEditParticipantId]);
-
-  useEffect(() => {
-    if (
-      onboardingEditParticipantId &&
-      !pendingPeople.some((p) => p.id === onboardingEditParticipantId)
-    ) {
-      setOnboardingEditParticipantId(null);
-    }
-  }, [pendingPeople, onboardingEditParticipantId]);
 
   const loadEventData = async () => {
     if (!eventId) return;
@@ -169,18 +161,29 @@ export default function Index() {
   };
 
   const handleRemovePerson = async (personId: string) => {
+    const isLastParticipant =
+      people.length === 1 && people[0]?.id === personId;
+
     try {
+      if (isLastParticipant) {
+        if (!eventId) throw new Error("Missing event");
+        await deleteEvent(eventId);
+        toast.success("Trip deleted");
+        navigate("/", { replace: true });
+        return;
+      }
+
       await removeParticipant(personId);
-      setPeople((prev) => {
-        const next = prev.filter((p) => p.id !== personId);
-        if (next.length === 0) {
-          setPendingPeople([]);
-        }
-        return next;
-      });
+      setPeople((prev) => prev.filter((p) => p.id !== personId));
     } catch (error) {
-      console.error("Error removing participant:", error);
-      toast.error("Failed to remove participant");
+      console.error(
+        isLastParticipant ? "Error deleting trip:" : "Error removing participant:",
+        error
+      );
+      toast.error(
+        isLastParticipant ? "Failed to delete trip" : "Failed to remove participant"
+      );
+      throw error;
     }
   };
 
@@ -202,20 +205,32 @@ export default function Index() {
     }
   };
 
-  const handleOnboardingNext = async () => {
+  const handleOnboardingCreateTrip = async (confirmedPeople: Person[]) => {
     if (!eventId) return;
-    if (pendingPeople.length === 0) {
+    const participantsToSave = confirmedPeople
+      .map((person) => ({ ...person, name: person.name.trim() }))
+      .filter((person) => person.name.length > 0);
+
+    if (participantsToSave.length === 0) {
       toast.error("Add at least one participant to continue");
+      return;
+    }
+    const normalizedNames = participantsToSave.map((person) =>
+      person.name.toLowerCase(),
+    );
+    if (new Set(normalizedNames).size !== normalizedNames.length) {
+      toast.error("Each participant needs a unique name");
       return;
     }
 
     setSavingPendingParticipants(true);
     try {
-      for (const person of pendingPeople) {
+      for (const person of participantsToSave) {
         await addParticipant(eventId, person);
       }
-      setPeople(pendingPeople);
+      setPeople(participantsToSave);
       setPendingPeople([]);
+      setShowTripAccessOnboarding(true);
       toast.success("Participants saved.");
     } catch (error) {
       console.error("Error saving participants:", error);
@@ -303,7 +318,7 @@ export default function Index() {
       <div className="app-page">
         {showParticipantOnboarding ? (
           <>
-            <div className="w-full space-y-6 pb-[calc(5.5rem+var(--safe-area-bottom))]">
+            <div className="w-full space-y-6">
               <div className="space-y-3 text-center">
                 <img
                   src={`${import.meta.env.BASE_URL}participants-illustration.webp`}
@@ -312,62 +327,24 @@ export default function Index() {
                   height={180}
                   className="empty-state-illustration mx-auto block"
                   decoding="async"
-                  fetchPriority="high"
                 />
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  Let&apos;s start by adding participants
+                  Add participants
                 </h1>
               </div>
-              <ParticipantsManager
-                mode="onboarding"
+              <ParticipantOnboardingForm
                 people={pendingPeople}
-                onAddPerson={(person) => setPendingPeople((prev) => [...prev, person])}
-                onRemovePerson={(id) =>
-                  setPendingPeople((prev) => prev.filter((p) => p.id !== id))
-                }
-                onEditPerson={(p) => setOnboardingEditParticipantId(p.id)}
-                notifyOnAdd={false}
-                emptyStateText="No one added yet."
-                addButtonVariant="secondary"
+                onPeopleChange={setPendingPeople}
+                onCreateTrip={handleOnboardingCreateTrip}
+                saving={savingPendingParticipants}
               />
-              {onboardingPersonToEdit ? (
-                <ParticipantFormSheet
-                  open={Boolean(onboardingPersonToEdit)}
-                  onOpenChange={(o) => {
-                    if (!o) setOnboardingEditParticipantId(null);
-                  }}
-                  variant="edit"
-                  people={pendingPeople}
-                  personToEdit={onboardingPersonToEdit}
-                  onUpdatePerson={handleUpdatePerson}
-                  addButtonVariant="secondary"
-                  notifyOnAdd={false}
-                />
-              ) : null}
-            </div>
-            <div
-              className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 pt-3 shadow-[0_-4px_24px_-12px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[max(0.75rem,var(--safe-area-bottom))]"
-            >
-              <div className="mx-auto w-full max-w-app px-4">
-                <Button
-                  type="button"
-                  onClick={handleOnboardingNext}
-                  disabled={pendingPeople.length === 0 || savingPendingParticipants}
-                  className="w-full"
-                  size="lg"
-                >
-                  {savingPendingParticipants ? (
-                    "Saving…"
-                  ) : (
-                    <>
-                      Next
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           </>
+        ) : showTripAccessOnboarding && eventId ? (
+          <TripAccessOnboarding
+            eventId={eventId}
+            onContinue={() => setShowTripAccessOnboarding(false)}
+          />
         ) : (
           <>
             {eventId && (
@@ -391,8 +368,8 @@ export default function Index() {
             <div
               className={
                 navSection === "participants"
-                  ? "pb-[calc(3.5rem+7.5rem+var(--safe-area-bottom))]"
-                  : "pb-[calc(3.5rem+var(--safe-area-bottom))]"
+                  ? "pb-[calc(3.5rem+7.5rem)]"
+                  : "pb-[3.5rem]"
               }
             >
               {eventId && navSection === "bill" && (
@@ -458,7 +435,7 @@ export default function Index() {
 
             {eventId && navSection === "participants" && (
               <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[60]">
-                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+2rem+var(--safe-area-bottom))]">
+                <div className="mx-auto flex w-full max-w-app justify-center px-4 pb-[calc(0.25rem+3.5rem+2rem)]">
                   <Button
                     type="button"
                     className="pointer-events-auto h-12 min-h-12 min-w-0 gap-2 rounded-full px-5 text-base font-medium shadow-[0_10px_40px_-8px_rgba(0,0,0,0.22),0_4px_16px_-4px_rgba(0,0,0,0.12)] ring-1 ring-foreground/10"

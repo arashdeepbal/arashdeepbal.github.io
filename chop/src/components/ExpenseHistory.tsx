@@ -7,8 +7,13 @@ import { ConfirmBottomSheet } from "@/components/ConfirmBottomSheet";
 import { ArrowRight } from "lucide-react";
 import { IconBin } from "@/components/icons/app-icons";
 import { IndividualSettlement } from "@/services/database";
+import { formatAmount } from "@/lib/format-amount";
 import PersonAvatar from "./PersonAvatar";
 import { toast } from "sonner";
+import {
+  REMOVED_PARTICIPANT_AVATAR_SEED,
+  REMOVED_PARTICIPANT_LABEL,
+} from "@/lib/participant-avatar";
 
 interface ExpenseHistoryProps {
   billItems: BillItem[];
@@ -58,7 +63,7 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
   const [expenseToDelete, setExpenseToDelete] = useState<HistoryItem | null>(null);
 
   const getPersonNameById = (id: string) => {
-    return people.find(p => p.id === id)?.name || "Unknown";
+    return people.find(p => p.id === id)?.name || REMOVED_PARTICIPANT_LABEL;
   };
 
   const sortedItems = useMemo(() => {
@@ -135,7 +140,7 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
                 return (
                   <Card
                     key={item.id}
-                    className="p-4 shadow-sm"
+                    className="p-4"
                   >
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
@@ -162,7 +167,7 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
                           </div>
                         </div>
                         <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
-                          {item.currency} {item.amount?.toFixed(2)}
+                          {item.currency} {formatAmount(item.amount)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -179,14 +184,14 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
               const paidByPerson = people.find((p) => p.id === item.paidBy);
 
               return (
-                <Card key={item.id} className="overflow-hidden p-0 shadow-sm">
+                <Card key={item.id} className="overflow-hidden p-0">
                   <div className="space-y-4 px-4 pt-4 pb-2">
                     <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                       <h4 className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-tight text-foreground">
                         {item.description}
                       </h4>
                       <span className="shrink-0 text-base font-semibold tabular-nums text-foreground">
-                        {item.currency} {item.amount?.toFixed(2)}
+                        {item.currency} {formatAmount(item.amount)}
                       </span>
                     </div>
 
@@ -233,16 +238,19 @@ export default function ExpenseHistory({ billItems, people, settlements, onRemov
                                 >
                                   <span className="flex min-w-0 items-center gap-2">
                                     <PersonAvatar
-                                      name={person?.name || ""}
-                                      seed={person?.avatarSeed || ""}
+                                      name={person?.name || REMOVED_PARTICIPANT_LABEL}
+                                      seed={
+                                        person?.avatarSeed ||
+                                        REMOVED_PARTICIPANT_AVATAR_SEED
+                                      }
                                       size="sm"
                                     />
                                     <span className="truncate font-medium text-foreground">
-                                      {person?.name}
+                                      {person?.name ?? REMOVED_PARTICIPANT_LABEL}
                                     </span>
                                   </span>
                                   <span className="shrink-0 font-medium tabular-nums text-foreground">
-                                    {item.currency} {split.amount.toFixed(2)}
+                                    {item.currency} {formatAmount(split.amount)}
                                   </span>
                                 </li>
                               );

@@ -7,6 +7,12 @@ import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BillItem, Person, SplitMode, PersonSplit } from "@/types";
 import { getCurrencyByValue } from "@/lib/currencies";
+import {
+  formatAmount,
+  formatAmountInput,
+  normalizeAmountInput,
+  parseAmountInput,
+} from "@/lib/format-amount";
 import { amountsFromPercents, equalSplitPercents } from "@/lib/split-total-by-percents";
 import { CurrencyBottomSheet, PersonBottomSheet } from "@/components/form-bottom-sheets";
 import { toast } from "sonner";
@@ -53,22 +59,32 @@ export default function BillItemsManager({
   }, [billItems]);
 
   useEffect(() => {
-    // Reset shared with when people change
-    setNewItemSharedWith([]);
+    // Reset custom split values when people change.
     setPersonAmounts({});
     setPersonPercents({});
     lastPercentageSharedKeyRef.current = "";
   }, [people]);
 
   useEffect(() => {
-    // Set currency based on last used currency in bill items, or fallback to activeCurrency
+    // Restore the last added bill's currency and participant selection.
     if (billItems.length > 0) {
       const lastBillItem = billItems[billItems.length - 1];
+      const currentPersonIds = new Set(people.map((person) => person.id));
       setNewItemCurrency(lastBillItem.currency);
+      setNewItemPaidBy(
+        lastBillItem.paidBy && currentPersonIds.has(lastBillItem.paidBy)
+          ? lastBillItem.paidBy
+          : null,
+      );
+      setNewItemSharedWith(
+        lastBillItem.sharedWith.filter((personId) => currentPersonIds.has(personId))
+      );
     } else {
       setNewItemCurrency(activeCurrency);
+      setNewItemPaidBy(null);
+      setNewItemSharedWith([]);
     }
-  }, [billItems, activeCurrency]);
+  }, [billItems, activeCurrency, people]);
 
   useEffect(() => {
     // Reset amounts when shared participants change
@@ -102,17 +118,17 @@ export default function BillItemsManager({
   }, [newItemSharedWith, splitMode]);
 
   const validateSplit = (): boolean => {
-    const totalAmount = parseFloat(newItemAmount);
+    const totalAmount = parseAmountInput(newItemAmount);
     
     if (splitMode === "amount") {
       const totalAssigned = newItemSharedWith.reduce((sum, personId) => {
-        const amount = parseFloat(personAmounts[personId] || "0");
+        const amount = parseAmountInput(personAmounts[personId] || "0");
         return sum + amount;
       }, 0);
       
       if (Math.abs(totalAssigned - totalAmount) > 0.01) {
         toast.error(
-          `Amounts must sum to ${getCurrencyByValue(newItemCurrency)?.symbol ?? newItemCurrency} ${totalAmount.toFixed(2)}`
+          `Amounts must sum to ${getCurrencyByValue(newItemCurrency)?.symbol ?? newItemCurrency} ${formatAmount(totalAmount)}`
         );
         return false;
       }
@@ -144,7 +160,7 @@ export default function BillItemsManager({
       toast.error("Please enter an item description");
       return;
     }
-    if (!newItemAmount || parseFloat(newItemAmount) <= 0) {
+    if (!newItemAmount || parseAmountInput(newItemAmount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
@@ -163,7 +179,7 @@ export default function BillItemsManager({
 
     // Generate person splits based on split mode
     let personSplits: PersonSplit[] = [];
-    const totalAmount = parseFloat(newItemAmount);
+    const totalAmount = parseAmountInput(newItemAmount);
 
     if (splitMode === "equal") {
       const equalAmount = totalAmount / newItemSharedWith.length;
@@ -182,14 +198,14 @@ export default function BillItemsManager({
     } else {
       personSplits = newItemSharedWith.map((personId) => ({
         personId,
-        amount: parseFloat(personAmounts[personId] || "0"),
+        amount: parseAmountInput(personAmounts[personId] || "0"),
       }));
     }
 
     onAddItem({
       id: crypto.randomUUID(),
       description: newItemDescription.trim(),
-      amount: parseFloat(newItemAmount),
+      amount: parseAmountInput(newItemAmount),
       paidBy: newItemPaidBy,
       sharedWith: newItemSharedWith,
       currency: newItemCurrency,
@@ -230,9 +246,18 @@ export default function BillItemsManager({
   const selectAllChecked = allPeopleShared;
 
   const handlePersonAmountChange = (personId: string, value: string) => {
+    const normalized = normalizeAmountInput(value);
+    if (normalized == null) return;
     setPersonAmounts(prev => ({
       ...prev,
-      [personId]: value
+      [personId]: normalized
+    }));
+  };
+
+  const handlePersonAmountBlur = (personId: string) => {
+    setPersonAmounts((prev) => ({
+      ...prev,
+      [personId]: formatAmountInput(prev[personId] || ""),
     }));
   };
 
@@ -262,11 +287,14 @@ export default function BillItemsManager({
               <Label htmlFor="amount">Amount</Label>
               <Input
                 id="amount"
-                type="number"
-                min="0.01"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={newItemAmount}
-                onChange={(e) => setNewItemAmount(e.target.value)}
+                onChange={(e) => {
+                  const normalized = normalizeAmountInput(e.target.value);
+                  if (normalized != null) setNewItemAmount(normalized);
+                }}
+                onBlur={() => setNewItemAmount(formatAmountInput(newItemAmount))}
                 placeholder="0.00"
               />
             </div>
@@ -393,17 +421,16 @@ export default function BillItemsManager({
                       onPointerDown={(e) => e.stopPropagation()}
                     >
                       <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={personAmounts[person.id] || ""}
                         onChange={(e) =>
                           handlePersonAmountChange(person.id, e.target.value)
                         }
+                        onBlur={() => handlePersonAmountBlur(person.id)}
                         placeholder="0.00"
                         className="h-10 min-h-10 w-36 text-left text-sm tabular-nums"
                         onClick={(e) => e.stopPropagation()}
-                        inputMode="decimal"
                         aria-label={`${person.name} share amount`}
                       />
                       <span
