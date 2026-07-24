@@ -29,6 +29,7 @@
     /* Slightly darker red for delete / destructive actions (aligned across buttons). */
     --destructive: 0 74% 46%;
     --destructive-foreground: 0 0% 98%;
+    --destructive-action: 0 74% 46%;
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
@@ -65,9 +66,12 @@
 
     --destructive: 0 70% 30%;
     --destructive-foreground: 0 0% 98%;
+    /* Bright enough for destructive text and icons on a dark surface. */
+    --destructive-action: 0 75% 60%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
+    /* 40% gray clears the 3:1 non-text contrast target on both dark surfaces. */
+    --border: 0 0% 40%;
+    --input: 0 0% 40%;
     --ring: 210 100% 50%;
   }
 }
@@ -231,9 +235,9 @@
     opacity: 0;
     background: linear-gradient(
       to bottom,
-      rgb(255 255 255 / 92%) 0%,
-      rgb(255 255 255 / 78%) 66%,
-      rgb(255 255 255 / 0%) 100%
+      hsl(var(--card) / 92%) 0%,
+      hsl(var(--card) / 78%) 66%,
+      hsl(var(--card) / 0%) 100%
     );
     -webkit-backdrop-filter: blur(14px) saturate(140%);
     backdrop-filter: blur(14px) saturate(140%);
@@ -270,12 +274,16 @@
   /* Match the toast close control to its message state without shrinking its tap target. */
   [data-sonner-toast] [data-close-button]:hover,
   [data-sonner-toast] [data-close-button]:focus-visible {
-    background-color: rgb(37 44 56 / 6%) !important;
-    color: #252c38 !important;
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
   }
 
   [data-sonner-toast][data-type="success"] [data-close-button] {
     color: #047857 !important;
+  }
+
+  .dark [data-sonner-toast][data-type="success"] [data-close-button] {
+    color: #6ee7b7 !important;
   }
 
   [data-sonner-toast][data-type="success"] [data-close-button]:hover,
@@ -287,8 +295,18 @@
     background-color: #a7f3d0 !important;
   }
 
+  .dark [data-sonner-toast][data-type="success"] [data-close-button]:hover,
+  .dark [data-sonner-toast][data-type="success"] [data-close-button]:focus-visible,
+  .dark [data-sonner-toast][data-type="success"] [data-close-button]:active {
+    background-color: #064e3b !important;
+  }
+
   [data-sonner-toast][data-type="error"] [data-close-button] {
     color: #b91c1c !important;
+  }
+
+  .dark [data-sonner-toast][data-type="error"] [data-close-button] {
+    color: #fca5a5 !important;
   }
 
   [data-sonner-toast][data-type="error"] [data-close-button]:hover,
@@ -300,8 +318,18 @@
     background-color: #fecaca !important;
   }
 
+  .dark [data-sonner-toast][data-type="error"] [data-close-button]:hover,
+  .dark [data-sonner-toast][data-type="error"] [data-close-button]:focus-visible,
+  .dark [data-sonner-toast][data-type="error"] [data-close-button]:active {
+    background-color: #7f1d1d !important;
+  }
+
   [data-sonner-toast][data-type="warning"] [data-close-button] {
     color: #b45309 !important;
+  }
+
+  .dark [data-sonner-toast][data-type="warning"] [data-close-button] {
+    color: #fcd34d !important;
   }
 
   [data-sonner-toast][data-type="warning"] [data-close-button]:hover,
@@ -311,6 +339,12 @@
 
   [data-sonner-toast][data-type="warning"] [data-close-button]:active {
     background-color: #fde68a !important;
+  }
+
+  .dark [data-sonner-toast][data-type="warning"] [data-close-button]:hover,
+  .dark [data-sonner-toast][data-type="warning"] [data-close-button]:focus-visible,
+  .dark [data-sonner-toast][data-type="warning"] [data-close-button]:active {
+    background-color: #78350f !important;
   }
 
   [data-sonner-toast][data-type="info"] [data-close-button] {
@@ -333,9 +367,9 @@
     backdrop-filter: none;
     background: linear-gradient(
       to bottom,
-      rgb(255 255 255 / 98%) 0%,
-      rgb(255 255 255 / 90%) 70%,
-      rgb(255 255 255 / 0%) 100%
+      hsl(var(--card) / 98%) 0%,
+      hsl(var(--card) / 90%) 70%,
+      hsl(var(--card) / 0%) 100%
     );
   }
 }

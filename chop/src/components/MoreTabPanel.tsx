@@ -1,4 +1,11 @@
 import { IconCopy, IconEdit, IconSignOut } from "@/components/icons/app-icons";
+import { useState } from "react";
+import {
+  IconLightbulb,
+  IconShare,
+  IconThinDropdown,
+} from "@/components/icons/more-action-icons";
+import { SelectionBottomSheet } from "@/components/bottom-sheet-layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/section-heading";
@@ -9,6 +16,8 @@ import { Check } from "lucide-react";
 import { copyText, shareTrip } from "@/lib/share-trip";
 import { FeedbackIcon } from "@/components/FeedbackIcon";
 import { useTransientFeedback } from "@/hooks/use-transient-feedback";
+import { THEME_MODES, type ThemeMode } from "@/lib/theme";
+import { useThemeMode } from "@/hooks/use-theme-mode";
 
 const moreMenuListItemClass = cn(
   "-mx-3 h-auto min-h-14 w-[calc(100%+1.5rem)] justify-start gap-3 rounded-lg border-0 shadow-none",
@@ -30,6 +39,8 @@ export default function MoreTabPanel({
   onEditTrip,
   onExitTrip,
 }: MoreTabPanelProps) {
+  const { mode, setMode } = useThemeMode();
+  const [modeSheetOpen, setModeSheetOpen] = useState(false);
   const copyFeedback = useTransientFeedback();
   const shareFeedback = useTransientFeedback();
   const tripUrl = new URL(
@@ -59,6 +70,11 @@ export default function MoreTabPanel({
     } catch {
       toast.error("Couldn’t share this trip", { id: "more-share-trip" });
     }
+  };
+
+  const chooseMode = (nextMode: ThemeMode) => {
+    setMode(nextMode);
+    setModeSheetOpen(false);
   };
 
   return (
@@ -98,13 +114,7 @@ export default function MoreTabPanel({
               onClick={() => void handleShareTrip()}
             >
               <FeedbackIcon active={shareFeedback.active}>
-                <img
-                  src={`${import.meta.env.BASE_URL}share.svg`}
-                  alt=""
-                  width={20}
-                  height={20}
-                  className="h-5 w-5"
-                />
+                <IconShare className="h-5 w-5 text-foreground" />
               </FeedbackIcon>
               <span className="text-foreground">Share trip</span>
             </Button>
@@ -134,9 +144,30 @@ export default function MoreTabPanel({
             <Button
               type="button"
               variant="ghost"
+              className={cn(moreMenuListItemClass, "justify-between gap-4")}
+              onClick={() => setModeSheetOpen(true)}
+              aria-expanded={modeSheetOpen}
+              aria-haspopup="dialog"
+            >
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="flex size-5 shrink-0 items-center justify-center" aria-hidden>
+                  <IconLightbulb className="!h-6 !w-6 text-foreground" />
+                </span>
+                <span className="text-foreground">Mode</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                <span className="text-base font-normal capitalize">{mode}</span>
+                <IconThinDropdown className="h-3 w-3" />
+              </span>
+            </Button>
+          </li>
+          <li>
+            <Button
+              type="button"
+              variant="ghost"
               className={cn(
                 moreMenuListItemClass,
-                "text-destructive hover:bg-destructive/10 hover:text-destructive active:bg-destructive/15 active:text-destructive",
+                "text-destructive-action hover:bg-destructive/10 hover:text-destructive-action active:bg-destructive/15 active:text-destructive-action",
               )}
               onClick={onExitTrip}
             >
@@ -146,6 +177,35 @@ export default function MoreTabPanel({
           </li>
         </ul>
       </section>
+
+      <SelectionBottomSheet
+        open={modeSheetOpen}
+        onOpenChange={setModeSheetOpen}
+        title="Choose mode"
+        description="Choose how Chop looks on this device."
+      >
+        <div role="radiogroup" aria-label="Color mode">
+          {THEME_MODES.map((themeMode) => {
+            const selected = mode === themeMode;
+            return (
+              <button
+                key={themeMode}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={cn(
+                  "motion-press flex min-h-14 w-full items-center justify-between gap-4 border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50",
+                  selected && "bg-primary/5",
+                )}
+                onClick={() => chooseMode(themeMode)}
+              >
+                <span className="text-base font-medium capitalize text-foreground">{themeMode}</span>
+                {selected ? <Check className="h-5 w-5 shrink-0 text-primary" aria-hidden /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </SelectionBottomSheet>
 
       <section className="space-y-2" aria-labelledby="more-good-to-know-heading">
         <SectionHeading id="more-good-to-know-heading">

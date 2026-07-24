@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { getMostRecentTrip } from './lib/recent-trips'
+import { applyThemeMode, readThemeMode } from './lib/theme'
 
 const navigatorWithStandalone = navigator as Navigator & {
   standalone?: boolean;
@@ -11,6 +12,7 @@ const isStandalone =
   navigatorWithStandalone.standalone === true;
 
 document.documentElement.dataset.standalone = String(isStandalone);
+applyThemeMode(readThemeMode());
 
 const searchParams = new URLSearchParams(window.location.search);
 const routeParam = searchParams.get("route");

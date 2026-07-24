@@ -18,6 +18,7 @@ import MoreTabPanel from "@/components/MoreTabPanel";
 import TripBottomNav, { type TripNavSection } from "@/components/TripBottomNav";
 import { TripPageHeader } from "@/components/TripPageHeader";
 import { IllustratedState } from "@/components/IllustratedState";
+import { ThemeImage } from "@/components/theme-image";
 import {
   FloatingActionButton,
   TripFloatingActionBar,
@@ -378,8 +379,9 @@ export default function Index() {
             className="max-w-sm gap-4"
             illustration={
               tripWasNotFound ? (
-                <img
+                <ThemeImage
                   src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
+                  darkSrc={`${import.meta.env.BASE_URL}trip-not-found-dark.webp`}
                   alt=""
                   width={180}
                   height={180}
@@ -427,8 +429,9 @@ export default function Index() {
                 as="header"
                 className="gap-3"
                 illustration={
-                  <img
-                    src={`${import.meta.env.BASE_URL}participants-illustration.webp`}
+                    <ThemeImage
+                      src={`${import.meta.env.BASE_URL}participants-illustration.webp`}
+                    darkSrc={`${import.meta.env.BASE_URL}participants-illustration-dark.webp`}
                     alt="Smiling man and woman standing together, representing a group of participants."
                     width={180}
                     height={180}

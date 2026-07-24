@@ -1,13 +1,17 @@
 /**
  * Encode `public/*.png` illustrations as WebP (resize + compress).
  * Drop new PNG exports into `public/`, run `npm run optimize:images`, then point components at `.webp`.
+ * Pass `--dark` to re-encode only dark-mode variants.
  */
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
 const publicDir = path.resolve("public");
-const files = (await readdir(publicDir)).filter((f) => f.endsWith(".png"));
+const darkOnly = process.argv.includes("--dark");
+const files = (await readdir(publicDir)).filter(
+  (f) => f.endsWith(".png") && (!darkOnly || f.endsWith("-dark.png")),
+);
 
 if (files.length === 0) {
   console.log("No PNG files in public/ — nothing to do.");

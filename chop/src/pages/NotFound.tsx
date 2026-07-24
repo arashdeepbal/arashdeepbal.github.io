@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { IllustratedState } from "@/components/IllustratedState";
+import { ThemeImage } from "@/components/theme-image";
 
 const NotFound = () => {
   return (
@@ -9,8 +10,9 @@ const NotFound = () => {
         <IllustratedState
           className="max-w-sm gap-4"
           illustration={
-            <img
+            <ThemeImage
               src={`${import.meta.env.BASE_URL}404-page.png`}
+              darkSrc={`${import.meta.env.BASE_URL}404-page-dark.webp`}
               alt=""
               width={220}
               height={175}

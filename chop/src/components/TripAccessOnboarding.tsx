@@ -8,6 +8,7 @@ import { copyText, shareTrip } from "@/lib/share-trip";
 import { FeedbackIcon } from "@/components/FeedbackIcon";
 import { useTransientFeedback } from "@/hooks/use-transient-feedback";
 import { IllustratedState } from "@/components/IllustratedState";
+import { ThemeImage } from "@/components/theme-image";
 
 interface TripAccessOnboardingProps {
   eventId: string;
@@ -63,8 +64,9 @@ export function TripAccessOnboarding({
         as="header"
         className="gap-3"
         illustration={
-          <img
+          <ThemeImage
             src={`${import.meta.env.BASE_URL}trip-link-onboarding.webp`}
+          darkSrc={`${import.meta.env.BASE_URL}trip-link-onboarding-dark.webp`}
             alt="A bookmark marking a private web link."
             width={180}
             height={180}

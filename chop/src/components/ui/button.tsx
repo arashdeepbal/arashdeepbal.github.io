@@ -18,7 +18,7 @@ const buttonVariants = cva(
           "border border-input bg-card text-primary hover:bg-accent dark:border-input dark:text-foreground dark:hover:bg-accent",
         /** Delete actions: red regardless of “secondary” placement (not primary blue). */
         deleteOutline:
-          "border border-destructive/80 bg-card text-destructive shadow-none hover:bg-destructive/10 hover:text-destructive dark:border-destructive/70 dark:hover:bg-destructive/15",
+          "border border-destructive-action/80 bg-card text-destructive-action shadow-none hover:bg-destructive/10 hover:text-destructive-action dark:border-destructive-action/80 dark:hover:bg-destructive/15",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },

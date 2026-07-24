@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeModeProvider } from "@/components/theme-mode-provider";
 import {
   BrowserRouter,
   Routes,
@@ -39,7 +40,8 @@ function RouteScrollReset() {
 }
 
 const App = () => (
-  <TooltipProvider>
+  <ThemeModeProvider>
+    <TooltipProvider>
     <Sonner
       className="!w-full !max-w-app"
       position="bottom-center"
@@ -64,7 +66,8 @@ const App = () => (
         </Routes>
       </Suspense>
     </BrowserRouter>
-  </TooltipProvider>
+    </TooltipProvider>
+  </ThemeModeProvider>
 );
 
 export default App;

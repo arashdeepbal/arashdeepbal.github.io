@@ -20,8 +20,10 @@ import {
   type RecentTrip,
 } from "@/lib/recent-trips";
 import { waitForMotion } from "@/lib/motion";
+import { ThemeImage } from "@/components/theme-image";
 
 const HERO = `${import.meta.env.BASE_URL}landing-hero.webp`;
+const DARK_HERO = `${import.meta.env.BASE_URL}landing-hero-dark.webp`;
 const HERO_ALT = "German Shepherd puppy holding a large banknote";
 export default function Landing() {
   const [tripName, setTripName] = useState("");
@@ -110,8 +112,9 @@ export default function Landing() {
       <main className="app-page">
         <header className="space-y-3 text-center">
           <div className="flex w-full justify-center">
-            <img
+            <ThemeImage
               src={HERO}
+              darkSrc={DARK_HERO}
               alt={HERO_ALT}
               width={256}
               height={256}
@@ -170,7 +173,7 @@ export default function Landing() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          className="shrink-0 text-destructive-action hover:bg-destructive/10 hover:text-destructive-action"
                           onClick={() => void removeRecentTrip(trip.id)}
                           aria-label={`Remove ${trip.name} from recent trips`}
                         >

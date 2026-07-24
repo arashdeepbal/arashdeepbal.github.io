@@ -14,6 +14,7 @@ import { calculateDebtGroups } from "@/lib/calculate-debt-groups";
 import { ParticipantIdentity } from "@/components/ParticipantIdentity";
 import { SectionHeading } from "@/components/section-heading";
 import { IllustratedState } from "@/components/IllustratedState";
+import { ThemeImage } from "@/components/theme-image";
 
 interface BillSummaryProps {
   billItems: BillItem[];
@@ -112,8 +113,9 @@ export default function BillSummary({
       <IllustratedState
         className="gap-4 py-8"
         illustration={
-          <img
+          <ThemeImage
             src={`${import.meta.env.BASE_URL}summary-empty.png`}
+            darkSrc={`${import.meta.env.BASE_URL}summary-empty-dark.webp`}
             alt=""
             width={240}
             height={134}
@@ -223,8 +225,9 @@ export default function BillSummary({
         <IllustratedState
           className="gap-4 py-6"
           illustration={
-            <img
+            <ThemeImage
               src={`${import.meta.env.BASE_URL}summary-all-settled-trip.webp`}
+              darkSrc={`${import.meta.env.BASE_URL}summary-all-settled-trip-dark.webp`}
               alt=""
               width={180}
               height={180}

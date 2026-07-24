@@ -2,12 +2,15 @@ import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { cn } from "@/lib/utils";
 import { SUCCESS_TOAST_DURATION } from "@/lib/app-toast";
+import { useThemeMode } from "@/hooks/use-theme-mode";
 
 const Toaster = ({ className, icons, toastOptions, ...rest }: ToasterProps) => {
+  const { resolvedTheme } = useThemeMode();
+
   return (
     <Sonner
       {...rest}
-      theme="light"
+      theme={resolvedTheme}
       className={cn(
         "toaster group !z-[110] w-full px-4",
         className
@@ -49,16 +52,16 @@ const Toaster = ({ className, icons, toastOptions, ...rest }: ToasterProps) => {
             "[&_svg]:!h-[18px] [&_svg]:!w-[18px] [&_svg]:!shrink-0 [&_svg]:stroke-[2]",
             toastOptions?.classNames?.closeButton
           ),
-          success: cn("!border-emerald-200/90 !bg-emerald-50/95", toastOptions?.classNames?.success),
-          error: cn("!border-destructive/30 !bg-destructive/10", toastOptions?.classNames?.error),
-          warning: cn("!border-amber-200/90 !bg-amber-50/95", toastOptions?.classNames?.warning),
+          success: cn("!border-emerald-200/90 !bg-emerald-50/95 dark:!border-emerald-800/80 dark:!bg-emerald-950/75", toastOptions?.classNames?.success),
+          error: cn("!border-destructive-action/30 !bg-destructive/10 dark:!border-destructive-action/80 dark:!bg-destructive/30", toastOptions?.classNames?.error),
+          warning: cn("!border-amber-200/90 !bg-amber-50/95 dark:!border-amber-800/80 dark:!bg-amber-950/75", toastOptions?.classNames?.warning),
           info: cn("!border-primary/20 !bg-primary/5", toastOptions?.classNames?.info),
         },
       }}
       icons={{
-        success: <CheckCircle2 className="size-5 text-emerald-600" strokeWidth={2} aria-hidden />,
-        error: <AlertCircle className="size-5 text-destructive" strokeWidth={2} aria-hidden />,
-        warning: <AlertCircle className="size-5 text-amber-600" strokeWidth={2} aria-hidden />,
+        success: <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-300" strokeWidth={2} aria-hidden />,
+        error: <AlertCircle className="size-5 text-destructive-action" strokeWidth={2} aria-hidden />,
+        warning: <AlertCircle className="size-5 text-amber-600 dark:text-amber-300" strokeWidth={2} aria-hidden />,
         info: <Info className="size-5 text-primary" strokeWidth={2} aria-hidden />,
         loading: <Loader2 className="size-5 animate-spin text-primary" strokeWidth={2} aria-hidden />,
         ...icons,

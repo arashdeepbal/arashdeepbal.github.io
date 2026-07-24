@@ -22,6 +22,7 @@ import { REMOVED_PARTICIPANT_LABEL } from "@/lib/participant-avatar";
 import { cn } from "@/lib/utils";
 import { waitForMotion } from "@/lib/motion";
 import { IllustratedState } from "@/components/IllustratedState";
+import { ThemeImage } from "@/components/theme-image";
 
 interface ExpenseHistoryProps {
   billItems: BillItem[];
@@ -169,8 +170,9 @@ export default function ExpenseHistory({
       <IllustratedState
         className="gap-4 py-10"
         illustration={
-          <img
+          <ThemeImage
             src={`${import.meta.env.BASE_URL}trip-not-found.jpg`}
+          darkSrc={`${import.meta.env.BASE_URL}trip-not-found-dark.webp`}
             alt=""
             width={180}
             height={180}
