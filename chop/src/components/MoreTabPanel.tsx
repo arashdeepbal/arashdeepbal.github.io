@@ -78,8 +78,8 @@ export default function MoreTabPanel({
   };
 
   return (
-    <div className="space-y-8">
-      <Card variant="elevated" className="p-4">
+    <div className="space-y-8 pt-2">
+      <Card variant="subtle" className="bg-muted/30 p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1 text-left">
             <p className="text-sm text-muted-foreground">Name of trip</p>
