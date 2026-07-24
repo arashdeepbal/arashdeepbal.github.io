@@ -70,12 +70,12 @@ export function FormSubpageHeader({
           ) : null}
           <div
             className={cn(
-              "flex items-start gap-3",
+              "flex items-center gap-3",
               showCloseButton ? "justify-between" : "justify-start"
             )}
           >
             <Heading
-              className="min-w-0 flex-1 text-2xl font-semibold leading-tight tracking-tight text-foreground"
+              className="min-w-0 flex-1 text-lg font-semibold leading-6 text-foreground"
               aria-hidden={titleAriaHidden || undefined}
             >
               {title}

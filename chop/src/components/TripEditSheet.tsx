@@ -66,6 +66,7 @@ export function TripEditSheet({
       title="Edit trip details"
       description="Change the name of this trip."
       submitting={submitting}
+      bodyClassName="py-10"
       actions={
         <>
           <Button

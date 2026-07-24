@@ -8,7 +8,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -135,7 +134,9 @@ export function FormBottomSheet({
         </div>
       </div>
 
-      <FormSubpageBottomBar>{actions}</FormSubpageBottomBar>
+      <FormSubpageBottomBar className="[&>div>button]:h-12 [&>div>button]:min-h-12 [&>div>button]:text-base">
+        {actions}
+      </FormSubpageBottomBar>
     </BottomSheetFrame>
   );
 }
@@ -170,30 +171,24 @@ export function SelectionBottomSheet({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      hideClose={false}
+      hideClose
       className={cn(
         maxHeightClassName,
         "pb-[var(--safe-area-bottom)]",
         contentClassName
       )}
     >
-      <div className="w-full shrink-0 border-b border-border">
-        <SheetHeader
-          className={cn(
-            "px-4 py-4 text-left",
-            headerContent && "space-y-3",
-            headerClassName
-          )}
-        >
-          <h2
-            className="pr-12 text-left text-lg font-semibold text-foreground"
-            aria-hidden
-          >
-            {title}
-          </h2>
-          {headerContent}
-        </SheetHeader>
-      </div>
+      <FormSubpageHeader
+        variant="title-close"
+        title={title}
+        onBack={() => onOpenChange(false)}
+        titleElement="h2"
+        titleAriaHidden
+        className={headerClassName}
+      />
+      {headerContent ? (
+        <div className="w-full shrink-0 px-4 py-4">{headerContent}</div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {children}
       </div>
